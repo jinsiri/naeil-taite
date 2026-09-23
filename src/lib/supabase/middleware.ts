@@ -50,8 +50,13 @@ export async function updateSession(request: NextRequest) {
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    return NextResponse.redirect(url);
+    url.pathname = "/login";
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((cookie) => response.cookies.set(cookie));
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

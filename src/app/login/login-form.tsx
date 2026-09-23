@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ const schema = z.object({
 });
 
 export function LoginForm() {
-  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
   const {
@@ -26,17 +26,17 @@ export function LoginForm() {
   return (
     <form
       className="space-y-5"
-      onSubmit={handleSubmit(async (values) => {
+      onSubmit={handleSubmit((values) => {
         setMessage("");
-        try {
-          const result = await authenticate({ ...values, mode });
-          if (result.success) {
-            router.push("/resumes");
-            router.refresh();
-          } else setMessage(result.error ?? result.message ?? "");
-        } catch {
-          setMessage("연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
-        }
+        startTransition(async () => {
+          try {
+            const result = await authenticate({ ...values, mode });
+            setMessage(result.error ?? result.message ?? "");
+          } catch (error) {
+            unstable_rethrow(error);
+            setMessage("연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
+          }
+        });
       })}
     >
       <div className="space-y-2">
@@ -79,8 +79,12 @@ export function LoginForm() {
           {message}
         </p>
       )}
-      <Button className="min-h-11 w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting
+      <Button
+        className="min-h-11 w-full"
+        type="submit"
+        disabled={isSubmitting || isPending}
+      >
+        {isSubmitting || isPending
           ? "처리 중…"
           : mode === "login"
             ? "로그인하기"
@@ -90,7 +94,7 @@ export function LoginForm() {
         type="button"
         variant="ghost"
         className="min-h-11 w-full"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isPending}
         onClick={() => {
           setMode(mode === "login" ? "signup" : "login");
           setMessage("");

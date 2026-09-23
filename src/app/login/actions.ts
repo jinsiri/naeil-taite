@@ -12,7 +12,7 @@ const schema = z.object({
 
 export async function authenticate(
   input: unknown,
-): Promise<{ error?: string; message?: string; success?: boolean }> {
+): Promise<{ error?: string; message?: string }> {
   const parsed = schema.safeParse(input);
   if (!parsed.success)
     return { error: "이메일과 8자 이상의 비밀번호를 확인해 주세요." };
@@ -38,7 +38,7 @@ export async function authenticate(
           "로그인하지 못했어요. 이메일, 비밀번호, 메일 인증 여부를 확인해 주세요.",
       };
   }
-  return { success: true };
+  redirect("/resumes");
 }
 
 export async function signOut() {

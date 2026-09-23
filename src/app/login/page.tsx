@@ -1,8 +1,11 @@
+import { redirect } from "next/navigation";
+import { getIdentity } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  if (getSupabaseConfig() && (await getIdentity())) redirect("/resumes");
   return (
     <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-2xl font-bold">나만의 이력서 공간</h1>
