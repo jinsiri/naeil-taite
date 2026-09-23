@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { generateNickname } from "@/lib/auth/nickname";
 import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
@@ -19,7 +21,11 @@ export async function authenticate(
   const client = await createClient();
   const { email, password, mode } = parsed.data;
   if (mode === "signup") {
-    const { data, error } = await client.auth.signUp({ email, password });
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: { data: { nickname: generateNickname() } },
+    });
     if (error)
       return {
         error:
@@ -38,6 +44,7 @@ export async function authenticate(
           "로그인하지 못했어요. 이메일, 비밀번호, 메일 인증 여부를 확인해 주세요.",
       };
   }
+  revalidatePath("/", "layout");
   redirect("/resumes");
 }
 
@@ -45,5 +52,6 @@ export async function signOut() {
   const client = await createClient();
   const { error } = await client.auth.signOut();
   if (error) throw new Error("로그아웃하지 못했어요. 다시 시도해 주세요.");
+  revalidatePath("/", "layout");
   redirect("/login");
 }

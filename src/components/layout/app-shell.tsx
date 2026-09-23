@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AccountMenu } from "@/components/auth/account-menu";
 import { ArrowUpRight, Fingerprint, Sprout } from "lucide-react";
 import { Navigation } from "@/components/layout/navigation";
 
@@ -12,23 +14,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         본문으로 바로가기
       </a>
       <header className="border-b bg-card">
-        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between gap-2 px-4 sm:px-8">
           <Link
             href="/"
             aria-label="내일나이테 홈"
-            className="flex items-center gap-2.5 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+            className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <Fingerprint aria-hidden="true" className="size-9 text-primary" />
-            <span className="text-xl font-bold tracking-tight">
+            <Fingerprint
+              aria-hidden="true"
+              className="hidden size-9 text-primary min-[380px]:block"
+            />
+            <span className="text-lg font-bold tracking-tight sm:text-xl">
               내일나이테
-              <span className="ml-2 hidden text-xs font-normal text-muted-foreground sm:inline">
+              <span className="ml-2 hidden text-xs font-normal text-muted-foreground lg:inline">
                 내 일의 내일을 위해
               </span>
             </span>
           </Link>
-          <span className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground">
-            나의 커리어 공간
-          </span>
+          <Suspense
+            fallback={
+              <span className="text-xs text-muted-foreground">
+                계정 확인 중…
+              </span>
+            }
+          >
+            <AccountMenu />
+          </Suspense>
         </div>
       </header>
       <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col lg:flex-row">

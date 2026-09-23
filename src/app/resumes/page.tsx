@@ -2,11 +2,10 @@ import Link from "next/link";
 import { FileText, Plus } from "lucide-react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { requireIdentity } from "@/lib/resumes/data";
 import { formatResumeDate, resumeSchema } from "@/lib/resumes/schema";
 import { getSupabaseConfig } from "@/lib/supabase/config";
-import { signOut } from "@/app/login/actions";
 
 export default async function ResumesPage() {
   if (!getSupabaseConfig())
@@ -53,11 +52,6 @@ export default async function ResumesPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <form action={signOut}>
-            <Button variant="ghost" className="min-h-11" type="submit">
-              로그아웃
-            </Button>
-          </form>
           <Link
             href="/resumes/new"
             className={buttonVariants({ className: "min-h-11 px-4" })}
