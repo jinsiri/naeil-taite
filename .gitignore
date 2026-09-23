@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+
+# Supabase CLI 로컬 캐시 및 임시 파일 제외
+.supabase/
+supabase/.temp/
