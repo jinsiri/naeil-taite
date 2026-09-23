@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "내일나이테",
-  description: "내일나이테 웹 서비스",
+  description: "내 일의 내일을 위해, 커리어 나이테 기록",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
