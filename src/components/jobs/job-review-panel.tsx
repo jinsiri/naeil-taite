@@ -29,12 +29,14 @@ export function JobReviewPanel({
   resumeVersion,
   initial,
   history,
+  aiProvider,
 }: {
   jobId: string;
   resumeId: string;
   resumeVersion: number;
   initial: ReviewSnapshot | null;
   history: ReviewSnapshot[];
+  aiProvider: "openai" | "ollama";
 }) {
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -93,23 +95,29 @@ export function JobReviewPanel({
               <input
                 className="mt-1 size-4 accent-primary"
                 type="checkbox"
-                name="externalDataConsent"
+                name="aiDataConsent"
                 value="true"
                 required
               />
               <span>
-                선택한 이력서 원문, 공고 원문과 회사명을 OpenAI API로 보내
-                분석하는 데 동의합니다. 회사명으로 웹 검색도 수행할 수 있습니다.
-                응답 저장은 비활성화하지만 API 데이터 처리는 계정 설정과 정책을
-                따릅니다.{" "}
-                <a
-                  href="https://platform.openai.com/docs/models/default-usage-policies-by-endpoint"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-4"
-                >
-                  데이터 처리 안내
-                </a>
+                {aiProvider === "ollama" ? (
+                  "선택한 이력서와 공고 원문을 앱 서버의 Ollama 로컬 모델로 보내 분석하는 데 동의합니다. 로컬 분석은 회사 웹 검색을 수행하지 않습니다."
+                ) : (
+                  <>
+                    선택한 이력서 원문, 공고 원문과 회사명을 OpenAI API로 보내
+                    분석하는 데 동의합니다. 회사명으로 웹 검색도 수행할 수
+                    있습니다. 응답 저장은 비활성화하지만 API 데이터 처리는 계정
+                    설정과 정책을 따릅니다.{" "}
+                    <a
+                      href="https://platform.openai.com/docs/models/default-usage-policies-by-endpoint"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-4"
+                    >
+                      데이터 처리 안내
+                    </a>
+                  </>
+                )}
               </span>
             </label>
             {message && (

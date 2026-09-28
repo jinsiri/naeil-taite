@@ -109,7 +109,7 @@ const analysisRequestSchema = z.object({
   jobId: z.uuid(),
   resumeId: z.uuid(),
   resumeVersion: z.coerce.number().int().positive(),
-  externalDataConsent: z.literal("true"),
+  aiDataConsent: z.literal("true"),
 });
 
 const providerResponseSchema = z
@@ -214,6 +214,102 @@ async function requestOpenAi(
   return { data: parsed.data };
 }
 
+async function requestOllama(
+  body: Record<string, unknown>,
+): Promise<{ data?: z.infer<typeof providerResponseSchema>; error?: string }> {
+  const baseUrl = (process.env.OLLAMA_BASE_URL || "http://localhost:11434")
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/, "");
+  const input = body.input;
+  const messages = Array.isArray(input)
+    ? input.flatMap((item) => {
+        if (
+          typeof item === "object" &&
+          item !== null &&
+          "role" in item &&
+          "content" in item &&
+          typeof item.role === "string" &&
+          typeof item.content === "string"
+        ) {
+          return [
+            {
+              role: item.role === "developer" ? "system" : item.role,
+              content: item.content,
+            },
+          ];
+        }
+        return [];
+      })
+    : [];
+  const config = body.text;
+  const format =
+    typeof config === "object" && config !== null && "format" in config
+      ? config.format
+      : null;
+  const schema =
+    typeof format === "object" && format !== null && "schema" in format
+      ? format.schema
+      : {};
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.OLLAMA_MODEL || "qwen3:8b",
+        messages,
+        format: schema,
+        think: false,
+        options: { num_ctx: 32768, num_predict: 6000 },
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(300_000),
+    });
+  } catch {
+    return {
+      error:
+        "로컬 AI 서버에 연결하지 못했어요. Ollama를 실행하고 설정한 모델을 내려받았는지 확인해 주세요.",
+    };
+  }
+  if (!response.ok)
+    return {
+      error:
+        "로컬 AI 분석 요청이 실패했어요. Ollama 버전과 모델 설정을 확인해 주세요.",
+    };
+  const result: unknown = await response.json().catch(() => null);
+  const text =
+    typeof result === "object" &&
+    result !== null &&
+    "message" in result &&
+    typeof result.message === "object" &&
+    result.message !== null &&
+    "content" in result.message &&
+    typeof result.message.content === "string"
+      ? result.message.content
+      : null;
+  if (!text)
+    return {
+      error: "로컬 AI가 분석 결과를 반환하지 않았어요. 다시 시도해 주세요.",
+    };
+  return {
+    data: {
+      status: "completed",
+      output_text: text,
+      output: [{ content: [{ type: "output_text", text }] }],
+    },
+  };
+}
+
+async function requestAnalysis(
+  provider: "openai" | "ollama",
+  apiKey: string,
+  body: Record<string, unknown>,
+) {
+  return provider === "ollama"
+    ? requestOllama(body)
+    : requestOpenAi(apiKey, body);
+}
+
 export async function analyzeJobWithAI(formData: FormData) {
   const identity = await getIdentity();
   if (!identity) return { error: "로그인이 만료됐어요. 다시 로그인해 주세요." };
@@ -221,12 +317,18 @@ export async function analyzeJobWithAI(formData: FormData) {
     jobId: formData.get("jobId"),
     resumeId: formData.get("resumeId"),
     resumeVersion: formData.get("resumeVersion"),
-    externalDataConsent: formData.get("externalDataConsent"),
+    aiDataConsent: formData.get("aiDataConsent"),
   });
   if (!parsed.success)
-    return { error: "외부 AI 전송에 동의한 뒤 분석을 시작해 주세요." };
+    return { error: "AI 분석에 필요한 데이터 처리에 동의해 주세요." };
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey)
+  const provider =
+    process.env.AI_PROVIDER === "openai"
+      ? "openai"
+      : process.env.AI_PROVIDER === "ollama" || !apiKey
+        ? "ollama"
+        : "openai";
+  if (provider === "openai" && !apiKey)
     return {
       error:
         "AI 분석 설정이 필요해요. 서버 환경변수 OPENAI_API_KEY를 설정해 주세요.",
@@ -274,11 +376,14 @@ export async function analyzeJobWithAI(formData: FormData) {
     };
 
   const consentAt = new Date().toISOString();
-  const model = process.env.OPENAI_MODEL || "gpt-5-mini";
+  const model =
+    provider === "ollama"
+      ? process.env.OLLAMA_MODEL || "qwen3:8b"
+      : process.env.OPENAI_MODEL || "gpt-5-mini";
   let companySummary = "회사명이 없어 외부 회사 정보를 확인하지 않았습니다.";
   let companySources: ReturnType<typeof getWebCitations> = [];
-  if (job.company.trim()) {
-    const research = await requestOpenAi(apiKey, {
+  if (provider === "openai" && job.company.trim()) {
+    const research = await requestAnalysis(provider, apiKey ?? "", {
       model,
       store: false,
       tools: [{ type: "web_search", search_context_size: "medium" }],
@@ -299,9 +404,11 @@ export async function analyzeJobWithAI(formData: FormData) {
       researchText && companySources.length
         ? researchText.slice(0, 1000)
         : "검색 인용을 확인하지 못해 회사 정보는 미확인으로 남겼습니다.";
+  } else if (provider === "ollama") {
+    companySummary = "로컬 분석 모드에서는 웹 검색을 수행하지 않았습니다.";
   }
 
-  const analysisResult = await requestOpenAi(apiKey, {
+  const analysisResult = await requestAnalysis(provider, apiKey ?? "", {
     model,
     store: false,
     max_output_tokens: 6000,
