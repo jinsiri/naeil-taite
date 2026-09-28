@@ -56,13 +56,13 @@ GitHub Actions는 `main` 브랜치 push와 pull request에서 의존성을 lockf
 
 ## 이력서와 채용공고 기능 설정
 
-1. `.env.example`을 참고해 `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`과 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 설정합니다. service_role 키는 사용하지 않습니다.
-2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`을 순서대로 적용합니다.
+1. `.env.example`을 참고해 `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `OPENAI_API_KEY`와 선택 설정 `OPENAI_MODEL`을 지정합니다. Supabase `service_role` 키와 OpenAI 키를 `NEXT_PUBLIC_` 변수로 만들지 않습니다.
+2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`, `supabase/migrations/202609280003_ai_job_reviews.sql`을 순서대로 적용합니다.
 3. Supabase Auth에서 Email 인증을 활성화하고 Site URL을 개발 시 `http://localhost:3000`으로 설정합니다.
 4. 가입 확인 메일(Confirm signup)의 링크를 `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`로 설정합니다. 인증 후 고정된 `/resumes` 경로로 이동합니다.
-5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다. `/jobs`에서 공고를 저장하고 상세 화면에서 비교할 이력서 버전을 선택한 뒤, 직접 점수를 입력해 기회 평가와 지원 단계를 기록할 수 있습니다. `/applications`에서 최신 기회 우선순위와 지원 단계별 현황을 확인합니다.
+5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다. `/jobs`에서 공고를 저장하고 상세 화면에서 이력서 버전을 선택한 뒤, 원문 전송에 동의하고 AI 분석을 실행합니다. `/applications`에서 최신 평가 우선순위와 지원 단계별 현황을 확인하고 단계를 바로 변경할 수 있습니다.
 
-기회 점수는 회사 매력도·직무 적합도·커리어 자산·목표 정렬도·개인 적합도에 가중치를 적용한 참고 지표입니다. 원본 JSX의 회사 웹 조사와 Claude 기반 분석은 개인 이력서·공고를 외부로 보내므로 이 MVP에는 포함하지 않았습니다. 현재 이력서 대조는 문자열 근거만 보여주고 평가는 사용자가 직접 입력합니다.
+공고 상세에서 선택한 이력서 버전과 공고 원문을 OpenAI Responses API로 분석합니다. 회사명은 웹 검색에 사용될 수 있으며, 전송 전 화면에서 매번 동의를 받습니다. API 요청에 `store: false`를 지정하지만 제공자 측 데이터 처리는 API 계정 설정과 정책을 확인해야 합니다. 분석 결과는 점수와 출처 원문 인용을 포함해 이력으로 저장하고, 원문 이력서에는 자동 반영하지 않습니다. API 키가 없거나 DB 마이그레이션이 누락된 경우 분석을 시작하지 않습니다.
 
 이력서는 PDF·DOCX·TXT 파일을 첨부하면 텍스트를 자동 추출해 편집 칸에 미리 채웁니다. 최대 10MB, PDF는 최대 50페이지까지 처리하며 이미지 스캔 PDF는 OCR을 지원하지 않습니다. 추출을 위해 선택한 파일이 로그인된 사용자의 요청으로 앱 서버에 전송되지만, Supabase나 별도 AI 서비스로 전달되거나 원본 로컬 저장소에 저장되지는 않습니다. 사용자가 추출 내용을 검토·수정한 뒤 등록을 눌러야 본문이 Supabase DB에, 원본 파일이 로컬(기기) 디스크에 저장됩니다. TXT는 UTF-8 형식이어야 합니다. 이력서는 이름·자유 형식 본문·변경 메모로 등록합니다. 최초 등록 시 v1, 수정 저장 시 새 버전이 생성됩니다. 이전 버전의 복원은 현재 내용을 바꾸는 새 버전을 추가하며 기존 기록을 보존합니다. 동시 수정은 부모 행 잠금과 예상 버전 비교로 충돌을 감지합니다. 사용자의 저장·복원 승인은 각 버전의 `approved_at`, 복원 출처는 `restored_from_version`에 기록합니다.
 
@@ -90,4 +90,4 @@ pnpm build
 
 `supabase/tests/job_postings.sql`도 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 사용자 소유권에 따른 읽기·쓰기 격리, 공고 원문의 수정 방지, 타 사용자 공고 생성 차단을 확인한 뒤 전체 트랜잭션을 롤백합니다. 이력서 대조는 동일 표현을 찾는 단순 문자열 비교이며 의미 유사성이나 충족 여부를 판단하지 않습니다.
 
-`supabase/tests/job_reviews.sql`은 세 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 평가 스냅샷 추가, 타 사용자 데이터 격리, 직접 변경 차단, 지원 시작 시 통과 가능성 고정 및 복원 시 새 이력 추가를 확인한 뒤 전체 트랜잭션을 롤백합니다. 순수 점수 계산은 `tests/job-scoring.test.mjs`에서 확인합니다.
+`supabase/tests/job_reviews.sql`은 네 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 평가 스냅샷 추가, 타 사용자 데이터 격리, 직접 변경 차단, 지원 시작 시 통과 가능성 고정 및 복원 시 새 이력 추가를 확인한 뒤 전체 트랜잭션을 롤백합니다. 점수 산식은 `tests/job-scoring.test.mjs`에서 확인합니다.

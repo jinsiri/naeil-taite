@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { requireIdentity } from "@/lib/resumes/data";
 import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
+import { PipelineStageControl } from "@/components/jobs/pipeline-stage-control";
 import { reviewSnapshotSchema } from "@/lib/jobs/review-schema";
 
 const jobSchema = z.object({
@@ -145,38 +146,46 @@ export default async function ApplicationsPage() {
                 const job = byId.get(review.job_posting_id);
                 if (!job) return null;
                 return (
-                  <Link
+                  <Card
                     key={review.id}
-                    href={`/jobs/${job.id}?resume=${review.resume_id}:${review.resume_version}#review`}
-                    className="rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+                    className="h-full transition-colors hover:bg-secondary/40"
                   >
-                    <Card className="h-full transition-colors hover:bg-secondary/40">
-                      <CardContent className="space-y-4 p-6">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-medium text-primary">
-                            {job.company || "회사명 미입력"}
-                          </span>
-                          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
-                            {review.pipeline_stage}
-                          </span>
-                        </div>
-                        <h3 className="text-lg font-semibold break-words">
+                    <CardContent className="space-y-4 p-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-primary">
+                          {job.company || "회사명 미입력"}
+                        </span>
+                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
+                          {review.pipeline_stage}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold break-words">
+                        <Link
+                          href={`/jobs/${job.id}?resume=${review.resume_id}:${review.resume_version}#review`}
+                          className="rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+                        >
                           {job.title}
-                        </h3>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                          <span>{review.category}</span>
-                          <span>우선순위 {review.priority_score}</span>
-                          <span>기회 {review.opportunity_score}점</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {job.deadline
-                            ? `마감일 ${job.deadline} · `
-                            : "마감일 미정 · "}
-                          예상 통과 가능성 {review.pass_estimate}%
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        </Link>
+                      </h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span>{review.category}</span>
+                        <span>우선순위 {review.priority_score}</span>
+                        <span>기회 {review.opportunity_score}점</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {job.deadline
+                          ? `마감일 ${job.deadline} · `
+                          : "마감일 미정 · "}
+                        예상 통과 가능성 {review.pass_estimate}%
+                      </p>
+                      <PipelineStageControl
+                        jobId={job.id}
+                        resumeId={review.resume_id}
+                        resumeVersion={review.resume_version}
+                        currentStage={review.pipeline_stage}
+                      />
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>

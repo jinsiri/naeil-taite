@@ -3,97 +3,63 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { rollbackJobReview, saveJobReview } from "@/app/jobs/review-actions";
-import {
-  APPLICATION_EFFORTS,
-  CAREER_PATHS,
-  PIPELINE_STAGES,
-  calculateOpportunityScore,
-  classifyOpportunity,
-  type ReviewScores,
-} from "@/lib/jobs/scoring";
+import { analyzeJobWithAI, rollbackJobReview } from "@/app/jobs/review-actions";
+import type { JobAiAnalysis } from "@/lib/jobs/ai-analysis";
 import type { ReviewSnapshot } from "@/lib/jobs/review-schema";
+import type { ReviewScores } from "@/lib/jobs/scoring";
 
-const scoreFields: { key: keyof ReviewScores; label: string }[] = [
-  { key: "companyQuality", label: "회사 매력도" },
+const dimensionLabels: { key: keyof ReviewScores; label: string }[] = [
+  { key: "companyQuality", label: "회사·공고 매력도" },
   { key: "roleFit", label: "직무 적합도" },
   { key: "careerCapital", label: "커리어 자산" },
   { key: "targetAlignment", label: "목표 정렬도" },
   { key: "personalFit", label: "개인 적합도" },
 ];
 
-const pathLabels = {
-  DIRECT: "직접 진입",
-  BRIDGE: "징검다리",
-  OPTION: "선택지",
-  REPEAT: "반복",
-  DETOUR: "우회",
-};
+const assessmentLabels = {
+  matched: "근거 확인",
+  partial: "일부 근거",
+  missing: "자료상 미확인",
+  unknown: "판단 보류",
+} as const;
 
 export function JobReviewPanel({
   jobId,
   resumeId,
   resumeVersion,
-  deadline,
   initial,
   history,
 }: {
   jobId: string;
   resumeId: string;
   resumeVersion: number;
-  deadline: string | null;
   initial: ReviewSnapshot | null;
   history: ReviewSnapshot[];
 }) {
-  const [scores, setScores] = useState<ReviewScores>(
-    initial?.scores ?? {
-      companyQuality: 50,
-      roleFit: 50,
-      careerCapital: 50,
-      targetAlignment: 50,
-      personalFit: 50,
-    },
-  );
-  const [passEstimate, setPassEstimate] = useState(
-    initial?.pass_estimate ?? 50,
-  );
-  const [careerPath, setCareerPath] = useState(
-    initial?.career_path ?? "DIRECT",
-  );
-  const [effort, setEffort] = useState(initial?.application_effort ?? "Medium");
-  const [stage, setStage] = useState(initial?.pipeline_stage ?? "검토중");
-  const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
-  const opportunity = calculateOpportunityScore(scores);
-  const category = classifyOpportunity(
-    opportunity,
-    passEstimate,
-    careerPath,
-    scores.targetAlignment,
-    scores.careerCapital,
-    scores.roleFit,
-  );
+  const analysis = initial?.ai_analysis ?? null;
 
-  function submit(formData: FormData) {
-    if (
-      stage === "지원완료" &&
-      !window.confirm("이 공고를 실제로 지원 완료한 것으로 기록할까요?")
-    )
-      return;
-    if (stage === "지원완료") formData.set("confirmedApply", "true");
+  function analyze(formData: FormData) {
     setMessage("");
     startTransition(async () => {
-      const result = await saveJobReview(formData);
-      setMessage(result.error ?? "평가와 지원 단계 이력을 저장했어요.");
-      if (!result.error) window.location.reload();
+      try {
+        const result = await analyzeJobWithAI(formData);
+        if (result.error) {
+          setMessage(result.error);
+          return;
+        }
+        window.location.reload();
+      } catch {
+        setMessage("분석을 저장하지 못했어요. 기존 기록은 유지됩니다.");
+      }
     });
   }
 
   function restore(snapshot: ReviewSnapshot) {
     if (
       !window.confirm(
-        `평가 #${snapshot.snapshot_number}의 값으로 새 이력을 추가할까요? 기존 기록은 유지됩니다.`,
+        `평가 #${snapshot.snapshot_number}로 되돌릴까요? 기존 기록은 유지되고 새 이력이 추가됩니다.`,
       )
     )
       return;
@@ -107,175 +73,279 @@ export function JobReviewPanel({
   return (
     <section className="space-y-5" id="review">
       <div>
-        <h2 className="text-2xl font-semibold">기회 평가와 지원 이력</h2>
+        <h2 className="text-2xl font-semibold">AI 직무·경력 분석</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          점수는 직접 입력하는 참고용 평가입니다. 기회 점수는 커리어 자산·직무
-          적합도 각 25%, 회사·목표 정렬도 각 20%, 개인 적합도 10%로 계산합니다.
+          선택한 이력서 버전과 공고를 대조해 직무 방향, 요구사항별 근거와 평가를
+          정리합니다. 점수와 통과 가능성은 합격 예측이 아닌 참고 의견입니다.
         </p>
       </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>현재 평가</CardTitle>
+          <CardTitle>분석 실행</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={submit} className="space-y-5">
+          <form action={analyze} className="space-y-4">
             <input type="hidden" name="jobId" value={jobId} />
             <input type="hidden" name="resumeId" value={resumeId} />
             <input type="hidden" name="resumeVersion" value={resumeVersion} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              {scoreFields.map(({ key, label }) => (
-                <label key={key} className="space-y-2 text-sm">
-                  {label}: <strong>{scores[key]}</strong>
-                  <input
-                    name={key}
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={scores[key]}
-                    onChange={(event) =>
-                      setScores({
-                        ...scores,
-                        [key]: Number(event.target.value),
-                      })
-                    }
-                    className="block w-full accent-primary"
-                  />
-                </label>
-              ))}
-              <label className="space-y-2 text-sm">
-                예상 서류 통과 가능성: <strong>{passEstimate}</strong>
-                <input
-                  name="passEstimate"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={passEstimate}
-                  onChange={(event) =>
-                    setPassEstimate(Number(event.target.value))
-                  }
-                  className="block w-full accent-primary"
-                />
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="space-y-2 text-sm">
-                커리어 경로
-                <select
-                  name="careerPath"
-                  value={careerPath}
-                  onChange={(event) =>
-                    setCareerPath(event.target.value as typeof careerPath)
-                  }
-                  className="min-h-11 w-full rounded-lg border bg-background px-3"
-                >
-                  {CAREER_PATHS.map((path) => (
-                    <option key={path} value={path}>
-                      {pathLabels[path]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2 text-sm">
-                지원 부담
-                <select
-                  name="applicationEffort"
-                  value={effort}
-                  onChange={(event) =>
-                    setEffort(event.target.value as typeof effort)
-                  }
-                  className="min-h-11 w-full rounded-lg border bg-background px-3"
-                >
-                  {APPLICATION_EFFORTS.map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2 text-sm">
-                지원 단계
-                <select
-                  name="pipelineStage"
-                  value={stage}
-                  onChange={(event) =>
-                    setStage(event.target.value as typeof stage)
-                  }
-                  className="min-h-11 w-full rounded-lg border bg-background px-3"
-                >
-                  {PIPELINE_STAGES.map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="block space-y-2 text-sm">
-              변경 메모
+            <label className="flex items-start gap-3 rounded-lg border bg-secondary/40 p-4 text-sm leading-6">
               <input
-                name="reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                minLength={5}
-                maxLength={500}
+                className="mt-1 size-4 accent-primary"
+                type="checkbox"
+                name="externalDataConsent"
+                value="true"
                 required
-                placeholder={initial ? "평가를 수정한 이유" : "첫 평가 기록"}
-                className="min-h-11 w-full rounded-lg border bg-background px-3"
               />
+              <span>
+                선택한 이력서 원문, 공고 원문과 회사명을 OpenAI API로 보내
+                분석하는 데 동의합니다. 회사명으로 웹 검색도 수행할 수 있습니다.
+                응답 저장은 비활성화하지만 API 데이터 처리는 계정 설정과 정책을
+                따릅니다.{" "}
+                <a
+                  href="https://platform.openai.com/docs/models/default-usage-policies-by-endpoint"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-4"
+                >
+                  데이터 처리 안내
+                </a>
+              </span>
             </label>
-            <p className="text-sm">
-              기회 점수 <strong>{opportunity}</strong> · 분류{" "}
-              <strong>{category}</strong> · 마감 {deadline ?? "미정"}
-            </p>
             {message && (
               <p role="status" className="text-sm text-muted-foreground">
                 {message}
               </p>
             )}
-            <Button disabled={pending} type="submit">
-              {pending ? "저장 중…" : "평가 기록 추가"}
+            <Button type="submit" disabled={pending}>
+              {pending
+                ? "공고·회사·경력 근거를 분석하고 있어요…"
+                : analysis
+                  ? "AI로 다시 분석하기"
+                  : "AI 분석 시작"}
             </Button>
           </form>
         </CardContent>
       </Card>
+
+      {analysis ? (
+        <AnalysisResult
+          analysis={analysis}
+          review={initial}
+          history={history}
+          pending={pending}
+          onRestore={restore}
+        />
+      ) : (
+        <Card>
+          <CardContent className="py-6 text-sm leading-6 text-muted-foreground">
+            아직 AI 분석이 없습니다. 원문 전송에 동의하고 분석을 실행하면 결과와
+            근거가 버전별 이력에 저장됩니다.
+          </CardContent>
+        </Card>
+      )}
+    </section>
+  );
+}
+
+function AnalysisResult({
+  analysis,
+  review,
+  history,
+  pending,
+  onRestore,
+}: {
+  analysis: JobAiAnalysis;
+  review: ReviewSnapshot | null;
+  history: ReviewSnapshot[];
+  pending: boolean;
+  onRestore: (snapshot: ReviewSnapshot) => void;
+}) {
+  return (
+    <>
       <Card>
         <CardHeader>
-          <CardTitle>평가 변경 이력</CardTitle>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle>분석 결과</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {review
+                  ? `평가 ${review.opportunity_score}점 · ${review.category} · ${new Date(review.created_at).toLocaleString("ko-KR")}`
+                  : "AI 분석"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-secondary px-4 py-2 text-sm">
+              예상 서류 경쟁력 <strong>{review?.pass_estimate ?? "—"}</strong>
+              <span className="text-muted-foreground"> / 100</span>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              아직 기록이 없습니다. 평가를 저장하면 버전별 이력이 남습니다.
-            </p>
-          ) : (
-            history.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-0"
-              >
-                <div className="text-sm">
-                  <strong>
-                    #{item.snapshot_number} · {item.category}{" "}
-                    {item.opportunity_score}점
-                  </strong>
-                  <p className="text-muted-foreground">
-                    {item.pipeline_stage} ·{" "}
-                    {new Date(item.created_at).toLocaleString("ko-KR")} ·{" "}
-                    {item.change_reason}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => restore(item)}
-                >
-                  이 기록으로 복원
-                </Button>
+        <CardContent className="space-y-6">
+          <p className="text-sm leading-7">{analysis.summary}</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              ["직무 정체성", analysis.roleIdentity.role],
+              ["주요 업무 초점", analysis.roleIdentity.focus],
+              ["커리어 경로", analysis.roleIdentity.careerDirection],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border bg-card p-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </p>
+                <p className="mt-2 text-sm leading-6 font-medium">{value}</p>
               </div>
-            ))
-          )}
+            ))}
+          </div>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {analysis.roleIdentity.careerDirectionReason}
+          </p>
+
+          <section className="space-y-3">
+            <h3 className="font-semibold">세부 평가와 근거</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              {dimensionLabels.map(({ key, label }) => {
+                const dimension = analysis.dimensions[key];
+                return (
+                  <div key={key} className="space-y-2 rounded-lg border p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="text-sm font-medium">{label}</h4>
+                      <span className="text-sm font-semibold tabular-nums">
+                        {dimension.score} · {dimension.confidence}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {dimension.reason}
+                    </p>
+                    {dimension.jobQuote && (
+                      <blockquote className="border-l-2 border-primary/40 pl-3 text-xs leading-5 text-muted-foreground">
+                        공고: {dimension.jobQuote}
+                      </blockquote>
+                    )}
+                    {dimension.resumeQuote && (
+                      <blockquote className="border-l-2 border-secondary-foreground/30 pl-3 text-xs leading-5 text-muted-foreground">
+                        이력서: {dimension.resumeQuote}
+                      </blockquote>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="font-semibold">요구사항별 이력서 근거</h3>
+            {analysis.requirements.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                비교 가능한 요구사항을 찾지 못했습니다.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {analysis.requirements.map((item, index) => (
+                  <div
+                    key={`${item.requirement}-${index}`}
+                    className="space-y-2 rounded-lg border p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">{item.requirement}</p>
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-xs">
+                        {item.priority} · {assessmentLabels[item.assessment]}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {item.reason}
+                    </p>
+                    {item.jobQuote && (
+                      <blockquote className="border-l-2 border-primary/40 pl-3 text-xs leading-5 text-muted-foreground">
+                        공고: {item.jobQuote}
+                      </blockquote>
+                    )}
+                    {item.resumeQuote && (
+                      <blockquote className="border-l-2 border-secondary-foreground/30 pl-3 text-xs leading-5 text-muted-foreground">
+                        이력서: {item.resumeQuote}
+                      </blockquote>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold">지원 검토 이유</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {analysis.opportunityReason}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold">주요 위험과 확인할 점</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {analysis.mainRisk}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs leading-5 text-muted-foreground">
+            통과 경쟁력: {analysis.passEstimateCaveat}
+          </p>
+
+          <section className="space-y-2 border-t pt-5">
+            <h3 className="font-semibold">회사 정보 검색</h3>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {analysis.companyResearch.summary}
+            </p>
+            {analysis.companyResearch.sources.length > 0 && (
+              <ul className="space-y-1 text-sm">
+                {analysis.companyResearch.sources.map((source) => (
+                  <li key={source.url}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline underline-offset-4"
+                    >
+                      {source.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </CardContent>
       </Card>
-    </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>분석 변경 이력</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {history.map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-0"
+            >
+              <div className="text-sm">
+                <strong>
+                  #{item.snapshot_number} · {item.category} · 기회 점수{" "}
+                  {item.opportunity_score}
+                </strong>
+                <p className="text-muted-foreground">
+                  {item.pipeline_stage} · {item.change_reason} ·{" "}
+                  {new Date(item.created_at).toLocaleString("ko-KR")}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || item.id === review?.id}
+                onClick={() => onRestore(item)}
+              >
+                이 분석으로 복원
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </>
   );
 }

@@ -293,7 +293,6 @@ export default async function JobDetailPage({
           jobId={job.id}
           resumeId={selectedResume.id}
           resumeVersion={selectedVersion}
-          deadline={job.deadline}
           initial={reviewHistory[0] ?? null}
           history={reviewHistory.slice(0, 20)}
         />

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { APPLICATION_EFFORTS, CAREER_PATHS, PIPELINE_STAGES } from "./scoring";
+import { jobAiAnalysisSchema } from "./ai-analysis";
 
 export const reviewInputSchema = z.object({
   jobId: z.uuid(),
@@ -38,6 +39,8 @@ export const reviewSnapshotSchema = z.object({
   application_effort: z.enum(APPLICATION_EFFORTS),
   pipeline_stage: z.enum(PIPELINE_STAGES),
   pass_at_apply: z.number().int().min(0).max(100).nullable(),
+  ai_analysis: jobAiAnalysisSchema.nullable().default(null),
+  ai_consent_at: z.iso.datetime({ offset: true }).nullable().default(null),
   created_at: z.iso.datetime({ offset: true }),
 });
 
