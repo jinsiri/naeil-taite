@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { analyzeJobWithAI, rollbackJobReview } from "@/app/jobs/review-actions";
@@ -40,21 +41,42 @@ export function JobReviewPanel({
 }) {
   const [message, setMessage] = useState("");
   const [aiProvider, setAiProvider] = useState<"ollama" | "openai">("ollama");
+  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(
+    null,
+  );
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [pending, startTransition] = useTransition();
   const analysis = initial?.ai_analysis ?? null;
+  const analysisInProgress = pending && analysisStartedAt !== null;
+  const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(
+    elapsedSeconds % 60,
+  ).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (analysisStartedAt === null) return;
+    const updateElapsed = () =>
+      setElapsedSeconds(Math.floor((Date.now() - analysisStartedAt) / 1000));
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(interval);
+  }, [analysisStartedAt]);
 
   function analyze(formData: FormData) {
     setMessage("");
+    setElapsedSeconds(0);
+    setAnalysisStartedAt(Date.now());
     startTransition(async () => {
       try {
         const result = await analyzeJobWithAI(formData);
         if (result.error) {
           setMessage(result.error);
+          setAnalysisStartedAt(null);
           return;
         }
         window.location.reload();
       } catch {
         setMessage("분석을 저장하지 못했어요. 기존 기록은 유지됩니다.");
+        setAnalysisStartedAt(null);
       }
     });
   }
@@ -168,6 +190,36 @@ export function JobReviewPanel({
                 )}
               </span>
             </label>
+            {analysisInProgress && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
+              >
+                <Loader2
+                  aria-hidden="true"
+                  className="mt-0.5 size-5 shrink-0 animate-spin text-primary"
+                />
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-medium">
+                    {aiProvider === "ollama"
+                      ? "로컬 모델이 분석 응답을 만들고 있어요."
+                      : "OpenAI가 분석 응답을 만들고 있어요."}
+                    <span className="ml-2 font-mono text-muted-foreground tabular-nums">
+                      {elapsedLabel}
+                    </span>
+                  </p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {aiProvider === "ollama"
+                      ? "첫 실행이나 모델이 잠든 뒤에는 준비 시간이 더 걸릴 수 있어요. 문서 분량과 기기 성능에 따라 분석 시간이 달라집니다."
+                      : "공고와 이력서의 근거를 확인 중입니다. 분석이 끝나면 결과가 자동 저장됩니다."}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    진행률 대신 실제 경과 시간을 표시합니다.
+                  </p>
+                </div>
+              </div>
+            )}
             {message && (
               <p role="status" className="text-sm text-muted-foreground">
                 {message}
@@ -175,7 +227,9 @@ export function JobReviewPanel({
             )}
             <Button type="submit" disabled={pending}>
               {pending
-                ? "공고·회사·경력 근거를 분석하고 있어요…"
+                ? analysisInProgress
+                  ? "분석 중…"
+                  : "기록을 복원하고 있어요…"
                 : analysis
                   ? "AI로 다시 분석하기"
                   : "AI 분석 시작"}
