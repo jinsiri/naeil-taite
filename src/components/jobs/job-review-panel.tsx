@@ -29,16 +29,17 @@ export function JobReviewPanel({
   resumeVersion,
   initial,
   history,
-  aiProvider,
+  openAiConfigured,
 }: {
   jobId: string;
   resumeId: string;
   resumeVersion: number;
   initial: ReviewSnapshot | null;
   history: ReviewSnapshot[];
-  aiProvider: "openai" | "ollama";
+  openAiConfigured: boolean;
 }) {
   const [message, setMessage] = useState("");
+  const [aiProvider, setAiProvider] = useState<"ollama" | "openai">("ollama");
   const [pending, startTransition] = useTransition();
   const analysis = initial?.ai_analysis ?? null;
 
@@ -91,6 +92,53 @@ export function JobReviewPanel({
             <input type="hidden" name="jobId" value={jobId} />
             <input type="hidden" name="resumeId" value={resumeId} />
             <input type="hidden" name="resumeVersion" value={resumeVersion} />
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-medium">분석 제공자</legend>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-secondary/40 p-4 text-sm leading-6 has-checked:border-primary">
+                <input
+                  className="mt-1 size-4 accent-primary"
+                  type="radio"
+                  name="aiProvider"
+                  value="ollama"
+                  checked={aiProvider === "ollama"}
+                  onChange={() => setAiProvider("ollama")}
+                />
+                <span>
+                  <strong className="font-medium">
+                    Ollama · 무료 로컬 분석
+                  </strong>
+                  <span className="block text-muted-foreground">
+                    이력서와 공고는 이 앱 서버의 로컬 모델에서 분석하며 웹
+                    검색은 하지 않습니다.
+                  </span>
+                </span>
+              </label>
+              <label
+                className={`flex items-start gap-3 rounded-lg border p-4 text-sm leading-6 ${
+                  openAiConfigured
+                    ? "cursor-pointer bg-secondary/40 has-checked:border-primary"
+                    : "cursor-not-allowed opacity-60"
+                }`}
+              >
+                <input
+                  className="mt-1 size-4 accent-primary"
+                  type="radio"
+                  name="aiProvider"
+                  value="openai"
+                  checked={aiProvider === "openai"}
+                  onChange={() => setAiProvider("openai")}
+                  disabled={!openAiConfigured}
+                />
+                <span>
+                  <strong className="font-medium">OpenAI API</strong>
+                  <span className="block text-muted-foreground">
+                    {openAiConfigured
+                      ? "회사 정보 웹 검색을 포함해 분석합니다. API 사용 요금이 발생할 수 있습니다."
+                      : "사용하려면 서버 환경변수 OPENAI_API_KEY 설정이 필요합니다."}
+                  </span>
+                </span>
+              </label>
+            </fieldset>
             <label className="flex items-start gap-3 rounded-lg border bg-secondary/40 p-4 text-sm leading-6">
               <input
                 className="mt-1 size-4 accent-primary"

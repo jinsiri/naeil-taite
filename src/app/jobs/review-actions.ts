@@ -109,6 +109,7 @@ const analysisRequestSchema = z.object({
   jobId: z.uuid(),
   resumeId: z.uuid(),
   resumeVersion: z.coerce.number().int().positive(),
+  aiProvider: z.enum(["ollama", "openai"]),
   aiDataConsent: z.literal("true"),
 });
 
@@ -317,17 +318,13 @@ export async function analyzeJobWithAI(formData: FormData) {
     jobId: formData.get("jobId"),
     resumeId: formData.get("resumeId"),
     resumeVersion: formData.get("resumeVersion"),
+    aiProvider: formData.get("aiProvider"),
     aiDataConsent: formData.get("aiDataConsent"),
   });
   if (!parsed.success)
     return { error: "AI 분석에 필요한 데이터 처리에 동의해 주세요." };
+  const provider = parsed.data.aiProvider;
   const apiKey = process.env.OPENAI_API_KEY;
-  const provider =
-    process.env.AI_PROVIDER === "openai"
-      ? "openai"
-      : process.env.AI_PROVIDER === "ollama" || !apiKey
-        ? "ollama"
-        : "openai";
   if (provider === "openai" && !apiKey)
     return {
       error:

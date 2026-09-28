@@ -56,7 +56,7 @@ GitHub Actions는 `main` 브랜치 push와 pull request에서 의존성을 lockf
 
 ## 이력서와 채용공고 기능 설정
 
-1. `.env.example`을 참고해 `.env.local`에 Supabase 설정을 지정합니다. 기본 AI 제공자는 무료 로컬 Ollama이며, 이를 사용하려면 Ollama를 설치하고 `ollama pull qwen3:8b`를 실행합니다. OpenAI API를 사용하려면 `AI_PROVIDER=openai`와 서버 전용 `OPENAI_API_KEY`를 지정하고 선택적으로 `OPENAI_MODEL`을 설정합니다. 로컬 모드에서는 `OLLAMA_BASE_URL`과 `OLLAMA_MODEL`을 선택적으로 지정할 수 있습니다. Supabase `service_role` 키와 OpenAI 키를 `NEXT_PUBLIC_` 변수로 만들지 않습니다.
+1. `.env.example`을 참고해 `.env.local`에 Supabase 설정을 지정합니다. 공고 분석 화면에서 무료 로컬 Ollama 또는 OpenAI API를 선택할 수 있습니다. Ollama를 사용하려면 Ollama를 설치하고 `ollama pull qwen3:8b`를 실행합니다. OpenAI를 사용하려면 서버 전용 `OPENAI_API_KEY`를 지정하고 선택적으로 `OPENAI_MODEL`을 설정합니다. 로컬 모드에서는 `OLLAMA_BASE_URL`과 `OLLAMA_MODEL`을 선택적으로 지정할 수 있습니다. Supabase `service_role` 키와 OpenAI 키를 `NEXT_PUBLIC_` 변수로 만들지 않습니다.
 2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`, `supabase/migrations/202609280003_ai_job_reviews.sql`을 순서대로 적용합니다.
 3. Supabase Auth에서 Email 인증을 활성화하고 Site URL을 개발 시 `http://localhost:3000`으로 설정합니다.
 4. 가입 확인 메일(Confirm signup)의 링크를 `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`로 설정합니다. 인증 후 고정된 `/resumes` 경로로 이동합니다.

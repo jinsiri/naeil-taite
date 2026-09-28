@@ -295,13 +295,7 @@ export default async function JobDetailPage({
           resumeVersion={selectedVersion}
           initial={reviewHistory[0] ?? null}
           history={reviewHistory.slice(0, 20)}
-          aiProvider={
-            process.env.AI_PROVIDER === "openai" ||
-            (process.env.AI_PROVIDER !== "ollama" &&
-              Boolean(process.env.OPENAI_API_KEY))
-              ? "openai"
-              : "ollama"
-          }
+          openAiConfigured={Boolean(process.env.OPENAI_API_KEY)}
         />
       )}
     </div>
