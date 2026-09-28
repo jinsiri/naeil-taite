@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, BriefcaseBusiness, PanelsTopLeft } from "lucide-react";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -13,18 +14,10 @@ const jobSchema = z.object({
   company: z.string(),
   deadline: z.iso.date().nullable(),
 });
-const groups = [
-  "검토중",
-  "지원준비",
-  "지원완료",
-  "서류통과",
-  "1차면접",
-  "2차면접",
-  "처우협의",
-  "서류탈락",
-  "최종합격",
-  "최종탈락",
-] as const;
+
+const inPreparation = ["검토중", "지원준비"];
+const inProgress = ["지원완료", "서류통과", "1차면접", "2차면접", "처우협의"];
+const completed = ["서류탈락", "최종합격", "최종탈락"];
 
 export default async function ApplicationsPage() {
   if (!getSupabaseConfig())
@@ -32,12 +25,18 @@ export default async function ApplicationsPage() {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">지원 현황</h1>
         <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">
-            서비스 연결 후 공고별 지원 단계를 기록할 수 있습니다.
+          <CardContent className="space-y-3 py-8">
+            <h2 className="text-xl font-semibold">
+              서비스 연결을 기다리고 있어요
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              연결이 완료되면 공고별 지원 단계와 평가 기록을 확인할 수 있습니다.
+            </p>
           </CardContent>
         </Card>
       </div>
     );
+
   const { client, user } = await requireIdentity();
   const { data, error } = await client
     .from("job_reviews")
@@ -58,6 +57,7 @@ export default async function ApplicationsPage() {
   for (const item of snapshots)
     if (!latestByJob.has(item.job_posting_id))
       latestByJob.set(item.job_posting_id, item);
+
   const ids = [...latestByJob.keys()];
   const { data: jobsData, error: jobsError } = ids.length
     ? await client
@@ -69,29 +69,79 @@ export default async function ApplicationsPage() {
   if (jobsError) throw new Error("채용공고를 불러오지 못했어요.");
   const jobs = z.array(jobSchema).parse(jobsData);
   const byId = new Map(jobs.map((job) => [job.id, job]));
+  const reviews = [...latestByJob.values()]
+    .filter((review) => byId.has(review.job_posting_id))
+    .sort((a, b) => b.priority_score - a.priority_score);
+  const countFor = (stages: string[]) =>
+    reviews.filter((review) => stages.includes(review.pipeline_stage)).length;
+
   return (
     <div className="space-y-8">
       <div>
-        <p className="mb-3 text-sm text-primary">
-          저장한 평가를 바탕으로 정리해요
-        </p>
+        <p className="mb-3 text-sm text-primary">지원 과정을 차곡차곡</p>
         <h1 className="text-3xl font-bold tracking-tight">지원 현황</h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          단계는 공고 상세 화면의 평가에서 바꿀 수 있습니다.
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">
+          공고별 지원 단계와 기회 우선순위를 한눈에 살펴보세요.
         </p>
       </div>
-      {latestByJob.size > 0 && (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold">기회 우선순위</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              평가한 공고의 최신 점수와 다음 지원 단계를 함께 확인하세요.
-            </p>
+
+      {reviews.length === 0 ? (
+        <Card>
+          <CardContent className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 text-center">
+            <PanelsTopLeft aria-hidden="true" className="size-9 text-primary" />
+            <div>
+              <h2 className="text-xl font-semibold">아직 지원 기록이 없어요</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                공고 상세에서 이력서 버전을 비교하고 평가를 기록하면 여기에
+                모입니다.
+              </p>
+            </div>
+            <Link
+              href="/jobs"
+              className={buttonVariants({
+                variant: "outline",
+                className: "min-h-11 px-5",
+              })}
+            >
+              채용공고 둘러보기 <ArrowRight aria-hidden="true" />
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "검토·준비", count: countFor(inPreparation) },
+              { label: "지원·전형 진행", count: countFor(inProgress) },
+              { label: "전형 결과", count: countFor(completed) },
+            ].map((summary) => (
+              <Card key={summary.label}>
+                <CardContent className="flex items-center justify-between p-5">
+                  <span className="text-sm text-muted-foreground">
+                    {summary.label}
+                  </span>
+                  <span className="text-2xl font-semibold tabular-nums">
+                    {summary.count}
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {[...latestByJob.values()]
-              .sort((a, b) => b.priority_score - a.priority_score)
-              .map((review) => {
+
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">내 공고</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  우선순위가 높은 순서로 표시합니다.
+                </p>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                총 {reviews.length}건
+              </span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {reviews.map((review) => {
                 const job = byId.get(review.job_posting_id);
                 if (!job) return null;
                 return (
@@ -101,74 +151,49 @@ export default async function ApplicationsPage() {
                     className="rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <Card className="h-full transition-colors hover:bg-secondary/40">
-                      <CardContent className="space-y-2 p-5">
-                        <p className="text-xs font-medium text-primary">
-                          {review.category} · 우선순위 {review.priority_score}점
-                        </p>
-                        <h3 className="font-semibold">{job.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {review.pipeline_stage} · 기회{" "}
-                          {review.opportunity_score}점 · 통과{" "}
-                          {review.pass_estimate}%
+                      <CardContent className="space-y-4 p-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-medium text-primary">
+                            {job.company || "회사명 미입력"}
+                          </span>
+                          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
+                            {review.pipeline_stage}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-semibold break-words">
+                          {job.title}
+                        </h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <span>{review.category}</span>
+                          <span>우선순위 {review.priority_score}</span>
+                          <span>기회 {review.opportunity_score}점</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {job.deadline
+                            ? `마감일 ${job.deadline} · `
+                            : "마감일 미정 · "}
+                          예상 통과 가능성 {review.pass_estimate}%
                         </p>
                       </CardContent>
                     </Card>
                   </Link>
                 );
               })}
-          </div>
-        </section>
-      )}
-      {groups.map((stage) => {
-        const items = [...latestByJob.values()].filter(
-          (review) => review.pipeline_stage === stage,
-        );
-        return (
-          <section key={stage} className="space-y-3">
-            <h2 className="text-xl font-semibold">
-              {stage}{" "}
-              <span className="text-sm text-muted-foreground">
-                {items.length}
-              </span>
-            </h2>
-            {items.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                등록된 공고가 없습니다.
-              </p>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {items.map((review) => {
-                  const job = byId.get(review.job_posting_id);
-                  return job ? (
-                    <Link
-                      key={review.id}
-                      href={`/jobs/${job.id}?resume=${review.resume_id}:${review.resume_version}#review`}
-                    >
-                      <Card className="transition-colors hover:bg-secondary/40">
-                        <CardContent className="space-y-2 p-5">
-                          <p className="text-xs text-primary">
-                            {job.company || "회사명 미입력"} · {review.category}{" "}
-                            · 우선순위 {review.priority_score}
-                          </p>
-                          <h3 className="font-semibold">{job.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            기회 점수 {review.opportunity_score} · 통과 가능성{" "}
-                            {review.pass_estimate}%
-                            {job.deadline ? ` · 마감 ${job.deadline}` : ""}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ) : null;
-                })}
-              </div>
-            )}
+            </div>
           </section>
-        );
-      })}
-      <Link href="/jobs" className={buttonVariants({ variant: "outline" })}>
-        채용공고 보기
-      </Link>
+        </>
+      )}
+      {reviews.length > 0 && (
+        <Link
+          href="/jobs"
+          className={buttonVariants({
+            variant: "outline",
+            className: "min-h-11",
+          })}
+        >
+          <BriefcaseBusiness aria-hidden="true" /> 채용공고 보기
+        </Link>
+      )}
     </div>
   );
 }
