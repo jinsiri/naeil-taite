@@ -8,7 +8,7 @@ export default async function NewResumePage() {
       <div>
         <h1 className="text-3xl font-bold">이력서 등록하기</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          직접 입력한 내용으로 첫 번째 버전을 만들어요.
+          파일에서 내용을 가져오거나 직접 입력해 첫 번째 버전을 만들어요.
         </p>
       </div>
       <ResumeEditor />

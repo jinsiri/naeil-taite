@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/auth/account-menu";
-import { ArrowUpRight, Fingerprint, Sprout } from "lucide-react";
+import { ArrowUpRight, Sprout, Trees } from "lucide-react";
 import { Navigation } from "@/components/layout/navigation";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="내일나이테 홈"
             className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <Fingerprint
+            <Trees
               aria-hidden="true"
               className="hidden size-9 text-primary min-[380px]:block"
             />

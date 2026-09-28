@@ -1,19 +1,26 @@
 import { z } from "zod";
+import { isPostgresSafeText } from "./unicode";
 
 export const resumeInputSchema = z.object({
   title: z
     .string()
     .trim()
     .min(1, "이력서 이름을 입력해 주세요.")
-    .max(100, "이름은 100자 이내로 입력해 주세요."),
+    .max(100, "이름은 100자 이내로 입력해 주세요.")
+    .refine(isPostgresSafeText, "저장할 수 없는 숨은 문자가 포함되어 있어요."),
   content: z
     .string()
     .refine((value) => value.trim().length > 0, "이력서 내용을 입력해 주세요.")
-    .max(100000, "내용은 100,000자 이내로 입력해 주세요."),
+    .max(100000, "내용은 100,000자 이내로 입력해 주세요.")
+    .refine(
+      isPostgresSafeText,
+      "저장할 수 없는 숨은 문자가 포함되어 있어요. 해당 부분을 다시 입력해 주세요.",
+    ),
   changeNote: z
     .string()
     .trim()
-    .max(500, "변경 메모는 500자 이내로 입력해 주세요."),
+    .max(500, "변경 메모는 500자 이내로 입력해 주세요.")
+    .refine(isPostgresSafeText, "저장할 수 없는 숨은 문자가 포함되어 있어요."),
 });
 
 export type ResumeInput = z.infer<typeof resumeInputSchema>;
