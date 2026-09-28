@@ -3,7 +3,6 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   FileText,
-  GitCompareArrows,
   PanelsTopLeft,
   Sprout,
 } from "lucide-react";
@@ -24,13 +23,6 @@ const steps = [
     description: "관심 있는 공고와 마감일을 함께 보관해요.",
     icon: BriefcaseBusiness,
     label: "채용공고 둘러보기",
-  },
-  {
-    href: "/analysis",
-    title: "근거로 연결하기",
-    description: "공고와 이력서의 일치점과 부족한 정보를 살펴봐요.",
-    icon: GitCompareArrows,
-    label: "매칭 분석 둘러보기",
   },
 ];
 
@@ -96,7 +88,7 @@ export default function Home() {
             경험 정리부터 지원 준비까지
           </span>
         </div>
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {steps.map(
             ({ href, title, description, icon: Icon, label }, index) => (
               <Card key={href} className="py-6">

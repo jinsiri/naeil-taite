@@ -9,6 +9,8 @@ import { extractRequirements, compareRequirement } from "@/lib/jobs/matching";
 import { versionSchema } from "@/lib/resumes/schema";
 import { isJobPostingsTableMissing } from "@/lib/jobs/schema";
 import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
+import { JobReviewPanel } from "@/components/jobs/job-review-panel";
+import { reviewSnapshotSchema } from "@/lib/jobs/review-schema";
 
 const resumeChoicesSchema = z.array(
   z.object({
@@ -97,6 +99,27 @@ export default async function JobDetailPage({
         compareRequirement(requirement, selected.content),
       )
     : [];
+
+  let reviewHistory: ReturnType<typeof reviewSnapshotSchema.parse>[] = [];
+  if (selectedResume && selectedVersion) {
+    const { data, error } = await client
+      .from("job_reviews")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("job_posting_id", job.id)
+      .eq("resume_id", selectedResume.id)
+      .eq("resume_version", selectedVersion)
+      .order("snapshot_number", { ascending: false });
+    if (error && (error.code === "42P01" || error.code === "PGRST205"))
+      return (
+        <JobMigrationNotice
+          migrationFile="202609280002_job_reviews.sql"
+          feature="평가와 지원 이력"
+        />
+      );
+    if (error) throw new Error("평가 이력을 불러오지 못했어요.");
+    reviewHistory = z.array(reviewSnapshotSchema).parse(data);
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -265,6 +288,16 @@ export default async function JobDetailPage({
           </>
         )}
       </section>
+      {selected && selectedResume && selectedVersion && (
+        <JobReviewPanel
+          jobId={job.id}
+          resumeId={selectedResume.id}
+          resumeVersion={selectedVersion}
+          deadline={job.deadline}
+          initial={reviewHistory[0] ?? null}
+          history={reviewHistory.slice(0, 20)}
+        />
+      )}
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   BriefcaseBusiness,
   FileText,
-  GitCompareArrows,
   LayoutDashboard,
   PanelsTopLeft,
 } from "lucide-react";
@@ -15,7 +14,6 @@ const items = [
   { href: "/", label: "대시보드", icon: LayoutDashboard },
   { href: "/resumes", label: "이력서", icon: FileText },
   { href: "/jobs", label: "채용공고", icon: BriefcaseBusiness },
-  { href: "/analysis", label: "매칭 분석", icon: GitCompareArrows },
   { href: "/applications", label: "지원 현황", icon: PanelsTopLeft },
 ];
 
