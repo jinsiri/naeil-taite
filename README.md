@@ -54,13 +54,13 @@ GitHub Actions는 `main` 브랜치 push와 pull request에서 의존성을 lockf
 
 로컬과 CI 모두 `.nvmrc`의 Node 버전과 `package.json`의 pnpm 버전을 사용합니다.
 
-## 이력서 기능 설정
+## 이력서와 채용공고 기능 설정
 
 1. `.env.example`을 참고해 `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`과 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 설정합니다. service_role 키는 사용하지 않습니다.
-2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`을 적용합니다.
+2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`과 `supabase/migrations/202609280001_job_postings.sql`을 순서대로 적용합니다.
 3. Supabase Auth에서 Email 인증을 활성화하고 Site URL을 개발 시 `http://localhost:3000`으로 설정합니다.
 4. 가입 확인 메일(Confirm signup)의 링크를 `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`로 설정합니다. 인증 후 고정된 `/resumes` 경로로 이동합니다.
-5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다.
+5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다. `/jobs`에서 공고를 저장한 뒤 상세 화면에서 비교할 이력서 버전을 선택할 수 있습니다.
 
 이력서는 PDF·DOCX·TXT 파일을 첨부하면 텍스트를 자동 추출해 편집 칸에 미리 채웁니다. 최대 10MB, PDF는 최대 50페이지까지 처리하며 이미지 스캔 PDF는 OCR을 지원하지 않습니다. 추출을 위해 선택한 파일이 로그인된 사용자의 요청으로 앱 서버에 전송되지만, Supabase나 별도 AI 서비스로 전달되거나 원본 로컬 저장소에 저장되지는 않습니다. 사용자가 추출 내용을 검토·수정한 뒤 등록을 눌러야 본문이 Supabase DB에, 원본 파일이 로컬(기기) 디스크에 저장됩니다. TXT는 UTF-8 형식이어야 합니다. 이력서는 이름·자유 형식 본문·변경 메모로 등록합니다. 최초 등록 시 v1, 수정 저장 시 새 버전이 생성됩니다. 이전 버전의 복원은 현재 내용을 바꾸는 새 버전을 추가하며 기존 기록을 보존합니다. 동시 수정은 부모 행 잠금과 예상 버전 비교로 충돌을 감지합니다. 사용자의 저장·복원 승인은 각 버전의 `approved_at`, 복원 출처는 `restored_from_version`에 기록합니다.
 
@@ -85,3 +85,5 @@ pnpm build
 ```
 
 `supabase/tests/resumes.sql`은 마이그레이션이 적용된 **테스트 DB**에서 관리자 역할로 실행합니다. 테스트 사용자 생성, 타 사용자 조회·수정·복원 차단, 익명 접근 차단, 버전 수정·삭제 차단, 충돌 감지, 원본 유지, 복원, 실패한 저장의 롤백을 확인한 뒤 전체 트랜잭션을 롤백합니다. 실제 프로젝트의 이메일 가입·세션 갱신·첨부 다운로드 흐름은 Supabase 설정 후 별도로 확인합니다.
+
+`supabase/tests/job_postings.sql`도 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 사용자 소유권에 따른 읽기·쓰기 격리, 공고 원문의 수정 방지, 타 사용자 공고 생성 차단을 확인한 뒤 전체 트랜잭션을 롤백합니다. 이력서 대조는 동일 표현을 찾는 단순 문자열 비교이며 의미 유사성이나 충족 여부를 판단하지 않습니다.
