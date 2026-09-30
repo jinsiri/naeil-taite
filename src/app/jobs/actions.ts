@@ -57,3 +57,31 @@ export async function saveJobPosting(formData: FormData) {
     return { error: "공고를 저장하지 못했어요. 로그인 상태를 확인해 주세요." };
   }
 }
+
+export async function deleteJobPosting(jobId: string) {
+  const parsedId = z.uuid().safeParse(jobId);
+  if (!parsedId.success) return { error: "삭제할 공고를 확인하지 못했어요." };
+
+  try {
+    const identity = await getIdentity();
+    if (!identity)
+      return { error: "로그인이 만료됐어요. 다시 로그인해 주세요." };
+    const { client, user } = identity;
+    const { data, error } = await client
+      .from("job_postings")
+      .delete()
+      .eq("id", parsedId.data)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error)
+      return { error: "공고를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요." };
+    if (!data) return { error: "삭제할 공고가 없거나 권한이 없어요." };
+
+    revalidatePath("/jobs");
+    revalidatePath("/applications");
+    return { success: true };
+  } catch {
+    return { error: "공고를 삭제하지 못했어요. 로그인 상태를 확인해 주세요." };
+  }
+}

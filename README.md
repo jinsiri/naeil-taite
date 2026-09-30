@@ -57,14 +57,16 @@ GitHub Actions는 `main` 브랜치 push와 pull request에서 의존성을 lockf
 ## 이력서와 채용공고 기능 설정
 
 1. `.env.example`을 참고해 `.env.local`에 Supabase 설정을 지정합니다. 공고 분석 화면에서 무료 로컬 Ollama 또는 OpenAI API를 선택할 수 있습니다. Ollama를 사용하려면 Ollama를 설치하고 `ollama pull qwen3:8b`를 실행합니다. OpenAI를 사용하려면 서버 전용 `OPENAI_API_KEY`를 지정하고 선택적으로 `OPENAI_MODEL`을 설정합니다. 로컬 모드에서는 `OLLAMA_BASE_URL`과 `OLLAMA_MODEL`을 선택적으로 지정할 수 있습니다. Supabase `service_role` 키와 OpenAI 키를 `NEXT_PUBLIC_` 변수로 만들지 않습니다.
-2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`, `supabase/migrations/202609280003_ai_job_reviews.sql`을 순서대로 적용합니다.
+2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`, `supabase/migrations/202609280003_ai_job_reviews.sql`, `supabase/migrations/202609300001_job_posting_delete.sql`을 순서대로 적용합니다.
 3. Supabase Auth에서 Email 인증을 활성화하고 Site URL을 개발 시 `http://localhost:3000`으로 설정합니다.
 4. 가입 확인 메일(Confirm signup)의 링크를 `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`로 설정합니다. 인증 후 고정된 `/resumes` 경로로 이동합니다.
 5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다. `/jobs`에서 공고를 저장하고 상세 화면에서 이력서 버전을 선택한 뒤, 데이터 처리에 동의하고 AI 분석을 실행합니다. `/applications`에서 최신 평가 우선순위와 지원 단계별 현황을 확인하고 단계를 바로 변경할 수 있습니다.
 
 기본 OpenAI 모드는 선택한 이력서 버전과 공고 원문을 OpenAI Responses API로 분석합니다. 회사명은 웹 검색에 사용될 수 있으며, 전송 전 화면에서 매번 동의를 받습니다. `store: false`를 지정하지만 제공자 측 데이터 처리는 API 계정 설정과 정책을 확인해야 합니다. 로컬 Ollama 모드는 해당 컴퓨터의 Ollama 서버에서 분석하고 회사 웹 검색은 수행하지 않습니다. 웹 앱 서버가 다른 컴퓨터에서 실행 중이면 `OLLAMA_BASE_URL`은 그 서버가 접근할 수 있는 Ollama 주소여야 합니다. 분석 결과는 근거 인용과 함께 이력으로 저장하고 원문 이력서에는 자동 반영하지 않습니다.
 
-Ollama는 브라우저가 아니라 앱 서버에서 호출합니다. 저장소를 포크해 본인 컴퓨터에서 실행하면 그 컴퓨터에 설치한 Ollama를 사용할 수 있지만, Vercel 배포 앱은 사용자의 컴퓨터에 설치된 Ollama에 접근할 수 없습니다. Vercel에서도 Ollama를 사용하려면 Vercel 서버가 네트워크로 접근할 수 있는 별도 Ollama 서버를 운영하고 `OLLAMA_BASE_URL`을 설정해야 합니다.
+Ollama 로컬 분석은 공고 원문 12,000자까지 지원하며, 제한을 넘는 원문은 잘라내지 않고 분석 요청을 막습니다. 원문은 저장된 상태로 유지됩니다. Ollama는 브라우저가 아니라 앱 서버에서 호출합니다. 저장소를 포크해 본인 컴퓨터에서 실행하면 그 컴퓨터에 설치한 Ollama를 사용할 수 있지만, Vercel 배포 앱은 사용자의 컴퓨터에 설치된 Ollama에 접근할 수 없습니다. Vercel에서도 Ollama를 사용하려면 Vercel 서버가 네트워크로 접근할 수 있는 별도 Ollama 서버를 운영하고 `OLLAMA_BASE_URL`을 설정해야 합니다.
+
+공고 상세 화면에서 공고를 삭제할 수 있습니다. 삭제를 확인하면 공고와 연결된 AI 평가·지원 이력도 함께 영구 삭제됩니다.
 
 이력서는 PDF·DOCX·TXT 파일을 첨부하면 텍스트를 자동 추출해 편집 칸에 미리 채웁니다. 최대 10MB, PDF는 최대 50페이지까지 처리하며 이미지 스캔 PDF는 OCR을 지원하지 않습니다. 추출을 위해 선택한 파일이 로그인된 사용자의 요청으로 앱 서버에 전송되지만, Supabase나 별도 AI 서비스로 전달되거나 원본 로컬 저장소에 저장되지는 않습니다. 사용자가 추출 내용을 검토·수정한 뒤 등록을 눌러야 본문이 Supabase DB에, 원본 파일이 로컬(기기) 디스크에 저장됩니다. TXT는 UTF-8 형식이어야 합니다. 이력서는 이름·자유 형식 본문·변경 메모로 등록합니다. 최초 등록 시 v1, 수정 저장 시 새 버전이 생성됩니다. 이전 버전의 복원은 현재 내용을 바꾸는 새 버전을 추가하며 기존 기록을 보존합니다. 동시 수정은 부모 행 잠금과 예상 버전 비교로 충돌을 감지합니다. 사용자의 저장·복원 승인은 각 버전의 `approved_at`, 복원 출처는 `restored_from_version`에 기록합니다.
 

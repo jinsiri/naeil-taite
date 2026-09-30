@@ -19,6 +19,25 @@ begin
     raise exception 'Posting snapshot update accepted';
   exception when insufficient_privilege then null; end;
 end $$;
+delete from public.job_postings
+where title = '프론트엔드 개발자';
+do $$
+begin
+  if exists (select 1 from public.job_postings) then
+    raise exception 'Owner could not delete own posting';
+  end if;
+end $$;
+insert into public.job_postings(user_id, title, original_text)
+values ('10000000-0000-4000-8000-000000000001', '삭제 권한 확인', '사용자 소유권을 검사하는 삭제 권한 테스트 공고');
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+do $$
+begin
+  delete from public.job_postings;
+  if exists (select 1 from public.job_postings) then
+    raise exception 'Cross-user delete accepted';
+  end if;
+end $$;
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000002', true);
 do $$
 begin

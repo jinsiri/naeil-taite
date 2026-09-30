@@ -8,6 +8,7 @@ import { analyzeJobWithAI, rollbackJobReview } from "@/app/jobs/review-actions";
 import type { JobAiAnalysis } from "@/lib/jobs/ai-analysis";
 import type { ReviewSnapshot } from "@/lib/jobs/review-schema";
 import type { ReviewScores } from "@/lib/jobs/scoring";
+import { OLLAMA_MAX_JOB_POSTING_CHARACTERS } from "@/lib/jobs/ai-analysis-limits";
 
 const dimensionLabels: { key: keyof ReviewScores; label: string }[] = [
   { key: "companyQuality", label: "회사·공고 매력도" },
@@ -31,6 +32,7 @@ export function JobReviewPanel({
   initial,
   history,
   openAiConfigured,
+  jobTextLength,
 }: {
   jobId: string;
   resumeId: string;
@@ -38,6 +40,7 @@ export function JobReviewPanel({
   initial: ReviewSnapshot | null;
   history: ReviewSnapshot[];
   openAiConfigured: boolean;
+  jobTextLength: number;
 }) {
   const [message, setMessage] = useState("");
   const [aiProvider, setAiProvider] = useState<"ollama" | "openai">("ollama");
@@ -48,6 +51,7 @@ export function JobReviewPanel({
   const [pending, startTransition] = useTransition();
   const analysis = initial?.ai_analysis ?? null;
   const analysisInProgress = analysisStartedAt !== null;
+  const ollamaTextTooLong = jobTextLength > OLLAMA_MAX_JOB_POSTING_CHARACTERS;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(
     elapsedSeconds % 60,
   ).padStart(2, "0")}`;
@@ -130,8 +134,10 @@ export function JobReviewPanel({
                     Ollama · 무료 로컬 분석
                   </strong>
                   <span className="block text-muted-foreground">
-                    이력서와 공고는 이 앱 서버의 로컬 모델에서 분석하며 웹
-                    검색은 하지 않습니다.
+                    공고 원문{" "}
+                    {OLLAMA_MAX_JOB_POSTING_CHARACTERS.toLocaleString()}
+                    자까지 분석합니다. 이력서와 공고는 이 앱 서버의 로컬
+                    모델에서 분석하며 웹 검색은 하지 않습니다.
                   </span>
                 </span>
               </label>
@@ -161,6 +167,17 @@ export function JobReviewPanel({
                 </span>
               </label>
             </fieldset>
+            {aiProvider === "ollama" && (
+              <p
+                className={`text-sm ${ollamaTextTooLong ? "text-destructive" : "text-muted-foreground"}`}
+                role={ollamaTextTooLong ? "alert" : undefined}
+              >
+                Ollama 공고 분량: {jobTextLength.toLocaleString()} /{" "}
+                {OLLAMA_MAX_JOB_POSTING_CHARACTERS.toLocaleString()}자
+                {ollamaTextTooLong &&
+                  " · 분석 전에 원문을 줄여 주세요. 저장된 공고 원문은 변경되지 않습니다."}
+              </p>
+            )}
             <label className="flex items-start gap-3 rounded-lg border bg-secondary/40 p-4 text-sm leading-6">
               <input
                 className="mt-1 size-4 accent-primary"
@@ -227,7 +244,11 @@ export function JobReviewPanel({
             )}
             <Button
               type="submit"
-              disabled={pending || analysisInProgress}
+              disabled={
+                pending ||
+                analysisInProgress ||
+                (aiProvider === "ollama" && ollamaTextTooLong)
+              }
               aria-busy={analysisInProgress}
             >
               {pending

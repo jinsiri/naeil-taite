@@ -11,6 +11,7 @@ import { isJobPostingsTableMissing } from "@/lib/jobs/schema";
 import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
 import { JobReviewPanel } from "@/components/jobs/job-review-panel";
 import { reviewSnapshotSchema } from "@/lib/jobs/review-schema";
+import { DeleteJobButton } from "@/components/jobs/delete-job-button";
 
 const resumeChoicesSchema = z.array(
   z.object({
@@ -149,6 +150,9 @@ export default async function JobDetailPage({
               공고 원문 링크 열기
             </a>
           )}
+        </div>
+        <div className="mt-5">
+          <DeleteJobButton jobId={job.id} jobTitle={job.title} />
         </div>
       </div>
 
@@ -296,6 +300,7 @@ export default async function JobDetailPage({
           initial={reviewHistory[0] ?? null}
           history={reviewHistory.slice(0, 20)}
           openAiConfigured={Boolean(process.env.OPENAI_API_KEY)}
+          jobTextLength={job.original_text.length}
         />
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   jobAiAnalysisSchema,
 } from "@/lib/jobs/ai-analysis";
 import type { JobAiAnalysis } from "@/lib/jobs/ai-analysis";
+import { OLLAMA_MAX_JOB_POSTING_CHARACTERS } from "@/lib/jobs/ai-analysis-limits";
 import {
   reviewInputSchema,
   reviewSnapshotSchema,
@@ -371,6 +372,13 @@ export async function analyzeJobWithAI(formData: FormData) {
   if (jobError || !job) return { error: "분석할 채용공고를 찾지 못했어요." };
   if (resumeError || !resume)
     return { error: "선택한 이력서 버전을 찾지 못했어요." };
+  if (
+    provider === "ollama" &&
+    job.original_text.length > OLLAMA_MAX_JOB_POSTING_CHARACTERS
+  )
+    return {
+      error: `Ollama 분석은 공고 원문 ${OLLAMA_MAX_JOB_POSTING_CHARACTERS.toLocaleString()}자까지 지원해요. 원문은 그대로 보관되며, 공고를 줄이거나 OpenAI 분석을 선택해 주세요.`,
+    };
   if (resume.content.length > 60_000 || job.original_text.length > 30_000)
     return {
       error:
