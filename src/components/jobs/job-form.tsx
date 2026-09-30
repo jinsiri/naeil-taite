@@ -71,6 +71,18 @@ export function JobForm() {
           지원 마감일 <span className="text-muted-foreground">(선택)</span>
           <Input name="deadline" type="date" className="min-h-11" />
         </label>
+        <label className="space-y-2 text-sm font-medium sm:col-span-2">
+          근무지{" "}
+          <span className="text-muted-foreground">
+            (대중교통 평가를 원할 때)
+          </span>
+          <Input
+            name="workLocation"
+            maxLength={160}
+            placeholder="예: 서울시 강남구 테헤란로"
+            className="min-h-11"
+          />
+        </label>
       </div>
       <label
         className="block space-y-2 text-sm font-medium"

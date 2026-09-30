@@ -12,6 +12,8 @@ import {
 import type { ReviewSnapshot } from "@/lib/jobs/review-schema";
 import type { ReviewScores } from "@/lib/jobs/scoring";
 import { OLLAMA_MAX_JOB_POSTING_CHARACTERS } from "@/lib/jobs/ai-analysis-limits";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 const dimensionLabels: { key: keyof ReviewScores; label: string }[] = [
   { key: "companyQuality", label: "회사·공고 매력도" },
@@ -36,6 +38,8 @@ export function JobReviewPanel({
   history,
   openAiConfigured,
   jobTextLength,
+  transitReady,
+  transitMissing,
 }: {
   jobId: string;
   resumeId: string;
@@ -44,6 +48,8 @@ export function JobReviewPanel({
   history: ReviewSnapshot[];
   openAiConfigured: boolean;
   jobTextLength: number;
+  transitReady: boolean;
+  transitMissing: string;
 }) {
   const [message, setMessage] = useState("");
   const [aiProvider, setAiProvider] = useState<"ollama" | "openai">("ollama");
@@ -118,6 +124,26 @@ export function JobReviewPanel({
         </CardHeader>
         <CardContent>
           <form action={analyze} className="space-y-4">
+            {!transitReady && (
+              <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                <p className="text-sm leading-6">
+                  대중교통 출퇴근 점수는 {transitMissing} 정보가 없어 정확히
+                  계산되지 않을 수 있어요. 출퇴근 항목을 제외하고 그대로
+                  분석하거나 평가 기준 설정으로 이동할 수 있습니다.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/settings/scoring"
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    평가 기준 설정
+                  </Link>
+                  <span className="self-center text-xs text-muted-foreground">
+                    아래에서 ‘출퇴근 점수 없이 분석’을 선택할 수 있어요.
+                  </span>
+                </div>
+              </div>
+            )}
             <input type="hidden" name="jobId" value={jobId} />
             <input type="hidden" name="resumeId" value={resumeId} />
             <input type="hidden" name="resumeVersion" value={resumeVersion} />
@@ -260,7 +286,9 @@ export function JobReviewPanel({
                   : "기록을 복원하고 있어요…"
                 : analysis
                   ? "AI로 다시 분석하기"
-                  : "AI 분석 시작"}
+                  : transitReady
+                    ? "AI 분석 시작"
+                    : "출퇴근 점수 없이 분석"}
             </Button>
           </form>
         </CardContent>
@@ -273,6 +301,7 @@ export function JobReviewPanel({
           history={history}
           pending={pending}
           onRestore={restore}
+          transitReady={transitReady}
         />
       ) : (
         <Card>
@@ -292,12 +321,14 @@ function AnalysisResult({
   history,
   pending,
   onRestore,
+  transitReady,
 }: {
   analysis: JobAiAnalysis;
   review: ReviewSnapshot | null;
   history: ReviewSnapshot[];
   pending: boolean;
   onRestore: (snapshot: ReviewSnapshot) => void;
+  transitReady: boolean;
 }) {
   const matchSummary = getRequirementMatchSummary(analysis);
   return (
@@ -312,6 +343,26 @@ function AnalysisResult({
                   ? `평가 ${review.opportunity_score}점 · ${review.category} · ${new Date(review.created_at).toLocaleString("ko-KR")}`
                   : "AI 분석"}
               </p>
+              {review && typeof review.scores._transitMinutes === "number" && (
+                <p className="text-xs text-muted-foreground">
+                  대중교통 예상 편도 {review.scores._transitMinutes}분 · 거주
+                  시/구와 근무지 대표 위치 기준
+                </p>
+              )}
+              {review && typeof review.scores.publicTransitFit === "number" && (
+                <p className="text-xs text-muted-foreground">
+                  대중교통 적합도 {review.scores.publicTransitFit}/100이 기회
+                  점수에 반영됐습니다.
+                </p>
+              )}
+              {review &&
+                transitReady &&
+                typeof review.scores._transitMinutes !== "number" && (
+                  <p className="text-xs text-amber-700">
+                    이번 분석에서 대중교통 경로를 조회하지 못해 해당 점수는 기회
+                    점수에서 제외했습니다.
+                  </p>
+                )}
             </div>
             <div className="rounded-lg bg-secondary px-4 py-2 text-sm">
               예상 서류 경쟁력 <strong>{review?.pass_estimate ?? "—"}</strong>

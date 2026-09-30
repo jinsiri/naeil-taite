@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const CAREER_PATHS = [
   "DIRECT",
   "BRIDGE",
@@ -32,13 +34,53 @@ export type ReviewScores = {
   personalFit: number;
 };
 
-export function calculateOpportunityScore(scores: ReviewScores) {
+export type ScoreWeights = {
+  careerCapital: number;
+  roleFit: number;
+  companyQuality: number;
+  targetAlignment: number;
+  personalFit: number;
+  publicTransitFit: number;
+};
+
+export const scoreWeightsSchema = z.object({
+  careerCapital: z.number().min(0).max(100),
+  roleFit: z.number().min(0).max(100),
+  companyQuality: z.number().min(0).max(100),
+  targetAlignment: z.number().min(0).max(100),
+  personalFit: z.number().min(0).max(100),
+  publicTransitFit: z.number().min(0).max(100),
+});
+
+export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
+  careerCapital: 25,
+  roleFit: 25,
+  companyQuality: 20,
+  targetAlignment: 20,
+  personalFit: 10,
+  publicTransitFit: 10,
+};
+
+export const LEGACY_SCORE_WEIGHTS: ScoreWeights = {
+  careerCapital: 25,
+  roleFit: 25,
+  companyQuality: 20,
+  targetAlignment: 20,
+  personalFit: 10,
+  publicTransitFit: 0,
+};
+
+export function calculateOpportunityScore(
+  scores: ReviewScores & { publicTransitFit?: number },
+  weights: ScoreWeights = DEFAULT_SCORE_WEIGHTS,
+) {
+  const dimensions = Object.keys(weights) as (keyof ScoreWeights)[];
+  const available = dimensions.filter((key) => scores[key] !== undefined);
+  const totalWeight = available.reduce((sum, key) => sum + weights[key], 0);
+  if (totalWeight === 0) return 0;
   return Math.round(
-    scores.careerCapital * 0.25 +
-      scores.roleFit * 0.25 +
-      scores.companyQuality * 0.2 +
-      scores.targetAlignment * 0.2 +
-      scores.personalFit * 0.1,
+    available.reduce((sum, key) => sum + (scores[key] ?? 0) * weights[key], 0) /
+      totalWeight,
   );
 }
 

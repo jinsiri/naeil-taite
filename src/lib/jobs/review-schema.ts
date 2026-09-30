@@ -1,18 +1,37 @@
 import { z } from "zod";
-import { APPLICATION_EFFORTS, CAREER_PATHS, PIPELINE_STAGES } from "./scoring";
+import {
+  APPLICATION_EFFORTS,
+  CAREER_PATHS,
+  LEGACY_SCORE_WEIGHTS,
+  PIPELINE_STAGES,
+  scoreWeightsSchema,
+} from "./scoring";
 import { jobAiAnalysisSchema } from "./ai-analysis";
 
 export const reviewInputSchema = z.object({
   jobId: z.uuid(),
   resumeId: z.uuid(),
   resumeVersion: z.coerce.number().int().positive(),
-  scores: z.object({
-    companyQuality: z.coerce.number().int().min(0).max(100),
-    roleFit: z.coerce.number().int().min(0).max(100),
-    careerCapital: z.coerce.number().int().min(0).max(100),
-    targetAlignment: z.coerce.number().int().min(0).max(100),
-    personalFit: z.coerce.number().int().min(0).max(100),
-  }),
+  scores: z
+    .object({
+      companyQuality: z.coerce.number().int().min(0).max(100),
+      roleFit: z.coerce.number().int().min(0).max(100),
+      careerCapital: z.coerce.number().int().min(0).max(100),
+      targetAlignment: z.coerce.number().int().min(0).max(100),
+      personalFit: z.coerce.number().int().min(0).max(100),
+      publicTransitFit: z.coerce.number().int().min(0).max(100).optional(),
+      _weights: z
+        .object({
+          careerCapital: z.number().min(0).max(100),
+          roleFit: z.number().min(0).max(100),
+          companyQuality: z.number().min(0).max(100),
+          targetAlignment: z.number().min(0).max(100),
+          personalFit: z.number().min(0).max(100),
+          publicTransitFit: z.number().min(0).max(100),
+        })
+        .optional(),
+    })
+    .passthrough(),
   passEstimate: z.coerce.number().int().min(0).max(100),
   careerPath: z.enum(CAREER_PATHS),
   applicationEffort: z.enum(APPLICATION_EFFORTS),
@@ -30,7 +49,9 @@ export const reviewSnapshotSchema = z.object({
   parent_review_id: z.uuid().nullable(),
   rollback_source_id: z.uuid().nullable(),
   change_reason: z.string(),
-  scores: reviewInputSchema.shape.scores,
+  scores: reviewInputSchema.shape.scores
+    .extend({ _weights: scoreWeightsSchema.default(LEGACY_SCORE_WEIGHTS) })
+    .passthrough(),
   opportunity_score: z.number().int().min(0).max(100),
   pass_estimate: z.number().int().min(0).max(100),
   career_path: z.enum(CAREER_PATHS),

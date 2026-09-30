@@ -18,6 +18,10 @@ export const jobPostingInputSchema = z.object({
   company: z.string().trim().max(120),
   sourceUrl: optionalUrl,
   deadline: z.union([z.literal(""), z.iso.date()]),
+  workLocation: z
+    .string()
+    .trim()
+    .max(160, "근무지는 160자 이내로 입력해 주세요."),
   originalText: z
     .string()
     .refine(
@@ -34,6 +38,7 @@ export const jobPostingSchema = z.object({
   company: z.string(),
   source_url: z.string(),
   deadline: z.iso.date().nullable(),
+  work_location: z.string().default(""),
   original_text: z.string(),
   created_at: z.iso.datetime({ offset: true }),
   updated_at: z.iso.datetime({ offset: true }),

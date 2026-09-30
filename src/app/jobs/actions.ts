@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getIdentity } from "@/lib/supabase/server";
 import {
@@ -14,6 +15,7 @@ export async function saveJobPosting(formData: FormData) {
     company: formData.get("company"),
     sourceUrl: formData.get("sourceUrl"),
     deadline: formData.get("deadline"),
+    workLocation: formData.get("workLocation") ?? "",
     originalText: formData.get("originalText"),
   });
   if (!parsed.success)
@@ -36,6 +38,7 @@ export async function saveJobPosting(formData: FormData) {
         company: parsed.data.company,
         source_url: parsed.data.sourceUrl,
         deadline: parsed.data.deadline || null,
+        work_location: parsed.data.workLocation,
         original_text: parsed.data.originalText,
       })
       .select("id")
@@ -84,4 +87,24 @@ export async function deleteJobPosting(jobId: string) {
   } catch {
     return { error: "공고를 삭제하지 못했어요. 로그인 상태를 확인해 주세요." };
   }
+}
+
+export async function saveJobWorkLocation(formData: FormData) {
+  const id = z.uuid().safeParse(formData.get("jobId"));
+  const location = z
+    .string()
+    .trim()
+    .max(160)
+    .safeParse(formData.get("workLocation"));
+  if (!id.success || !location.success) redirect("/jobs");
+  const identity = await getIdentity();
+  if (!identity) redirect("/login");
+  const { error } = await identity.client
+    .from("job_postings")
+    .update({ work_location: location.data })
+    .eq("id", id.data)
+    .eq("user_id", identity.user.id);
+  if (error) redirect(`/jobs/${id.data}?locationError=1`);
+  revalidatePath(`/jobs/${id.data}`);
+  redirect(`/jobs/${id.data}?locationSaved=1`);
 }

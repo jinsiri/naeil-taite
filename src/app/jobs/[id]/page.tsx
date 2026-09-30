@@ -10,6 +10,9 @@ import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
 import { JobReviewPanel } from "@/components/jobs/job-review-panel";
 import { reviewSnapshotSchema } from "@/lib/jobs/review-schema";
 import { DeleteJobButton } from "@/components/jobs/delete-job-button";
+import { saveJobWorkLocation } from "@/app/jobs/actions";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const resumeChoicesSchema = z.array(
   z.object({
@@ -43,6 +46,11 @@ export default async function JobDetailPage({
   if (jobError) throw new Error("채용공고를 불러오지 못했어요.");
   if (!jobData) notFound();
   const job = jobPostingSchema.parse(jobData);
+  const { data: scoringPreferences } = await client
+    .from("scoring_preferences")
+    .select("home_district,transit_consent")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   const { data: choiceData, error: choiceError } = await client
     .from("resumes")
@@ -103,6 +111,11 @@ export default async function JobDetailPage({
           {job.company || "회사명 미입력"}
         </p>
         <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
+        {job.work_location && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            근무지 · {job.work_location}
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
           {job.deadline && <span>마감일 {job.deadline}</span>}
           {job.source_url && (
@@ -121,6 +134,33 @@ export default async function JobDetailPage({
         </div>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>공고 근무지</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            action={saveJobWorkLocation}
+            className="flex flex-col gap-3 sm:flex-row"
+          >
+            <input type="hidden" name="jobId" value={job.id} />
+            <Input
+              name="workLocation"
+              maxLength={160}
+              defaultValue={job.work_location}
+              placeholder="예: 서울시 강남구 테헤란로"
+              aria-label="공고 근무지"
+            />
+            <Button type="submit" variant="outline">
+              근무지 저장
+            </Button>
+          </form>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            대중교통 시간은 입력한 근무지와 평가 기준에 설정한 희망 거주 시/구의
+            대표 위치로 계산합니다.
+          </p>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>저장한 공고 원문</CardTitle>
@@ -217,6 +257,20 @@ export default async function JobDetailPage({
           history={reviewHistory.slice(0, 20)}
           openAiConfigured={Boolean(process.env.OPENAI_API_KEY)}
           jobTextLength={job.original_text.length}
+          transitReady={Boolean(
+            scoringPreferences?.home_district &&
+            job.work_location &&
+            scoringPreferences.transit_consent &&
+            process.env.KAKAO_REST_API_KEY,
+          )}
+          transitMissing={[
+            !scoringPreferences?.home_district && "희망 거주 시/구",
+            !job.work_location && "공고 근무지",
+            !scoringPreferences?.transit_consent && "경로 정보 전송 동의",
+            !process.env.KAKAO_REST_API_KEY && "Kakao API 키",
+          ]
+            .filter(Boolean)
+            .join(", ")}
         />
       )}
     </div>

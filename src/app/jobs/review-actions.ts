@@ -17,8 +17,11 @@ import {
   calculateOpportunityScore,
   calculatePriorityScore,
   classifyOpportunity,
+  DEFAULT_SCORE_WEIGHTS,
   PIPELINE_STAGES,
+  scoreWeightsSchema,
 } from "@/lib/jobs/scoring";
+import { commuteFitScore, getPublicTransitMinutes } from "@/lib/jobs/transit";
 
 const rollbackIdSchema = z.uuid();
 
@@ -54,6 +57,21 @@ async function persistReview(
     aiAnalysis === undefined ? (latest?.ai_analysis ?? null) : aiAnalysis;
   const savedConsentAt =
     aiConsentAt === undefined ? (latest?.ai_consent_at ?? null) : aiConsentAt;
+  const { data: preferenceData } = await client
+    .from("scoring_preferences")
+    .select("weights")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const weights =
+    input.scores._weights ??
+    scoreWeightsSchema.parse({
+      ...DEFAULT_SCORE_WEIGHTS,
+      ...(typeof preferenceData?.weights === "object" &&
+      preferenceData.weights !== null
+        ? preferenceData.weights
+        : {}),
+    });
+  const savedScores = { ...input.scores, _weights: weights };
   const { data: job, error: jobError } = await client
     .from("job_postings")
     .select("deadline")
@@ -61,7 +79,7 @@ async function persistReview(
     .eq("user_id", user.id)
     .maybeSingle();
   if (jobError || !job) return { error: "채용공고를 확인하지 못했어요." };
-  const opportunityScore = calculateOpportunityScore(input.scores);
+  const opportunityScore = calculateOpportunityScore(input.scores, weights);
   const category = classifyOpportunity(
     opportunityScore,
     input.passEstimate,
@@ -75,7 +93,7 @@ async function persistReview(
     p_job_posting_id: input.jobId,
     p_resume_id: input.resumeId,
     p_resume_version: input.resumeVersion,
-    p_scores: input.scores,
+    p_scores: savedScores,
     p_opportunity_score: opportunityScore,
     p_pass_estimate: input.passEstimate,
     p_career_path: input.careerPath,
@@ -369,7 +387,7 @@ export async function analyzeJobWithAI(formData: FormData) {
     await Promise.all([
       client
         .from("job_postings")
-        .select("id,title,company,deadline,original_text")
+        .select("id,title,company,deadline,original_text,work_location")
         .eq("id", parsed.data.jobId)
         .eq("user_id", user.id)
         .maybeSingle(),
@@ -515,6 +533,35 @@ export async function analyzeJobWithAI(formData: FormData) {
     targetAlignment: analysis.dimensions.targetAlignment.score,
     personalFit: analysis.dimensions.personalFit.score,
   };
+  const { data: transitPreferences } = await client
+    .from("scoring_preferences")
+    .select(
+      "home_district,commute_ideal_minutes,commute_max_minutes,transit_consent,weights",
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (
+    transitPreferences?.transit_consent &&
+    transitPreferences.home_district &&
+    job.work_location &&
+    process.env.KAKAO_REST_API_KEY
+  ) {
+    const minutes = await getPublicTransitMinutes(
+      transitPreferences.home_district,
+      job.work_location,
+      process.env.KAKAO_REST_API_KEY,
+    );
+    if (minutes !== null) {
+      Object.assign(scores, {
+        publicTransitFit: commuteFitScore(
+          minutes,
+          transitPreferences.commute_ideal_minutes,
+          transitPreferences.commute_max_minutes,
+        ),
+        _transitMinutes: minutes,
+      });
+    }
+  }
   return persistReview(
     {
       jobId: job.id,
