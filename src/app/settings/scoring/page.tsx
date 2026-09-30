@@ -72,17 +72,18 @@ export default async function ScoringSettingsPage({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm leading-6 text-muted-foreground">
-              출발지와 근무지 사이의 대중교통 예상 소요시간 기준입니다. 시/구
-              대표 위치를 사용하므로 실제 출발점·시간대와 차이가 날 수 있습니다.
-              Kakao REST API 키를 설정한 뒤 경로 계산이 활성화됩니다.
+              입력한 출발 위치에서 공고의 근무지 주소까지 대중교통으로 이동할
+              때의 예상 소요시간 기준입니다. 집 주소나 출발역·랜드마크를 입력할
+              수 있고, 입력 지점과 실제 이동 시간대에 따라 차이가 날 수
+              있습니다. Kakao REST API 키를 설정한 뒤 경로 계산이 활성화됩니다.
             </p>
             <label className="block space-y-2 text-sm font-medium">
-              희망 거주 시/구
+              출발 위치 (주소·역·장소)
               <Input
-                name="homeDistrict"
-                maxLength={80}
-                defaultValue={data?.home_district ?? ""}
-                placeholder="예: 서울시 마포구"
+                name="homeLocation"
+                maxLength={160}
+                defaultValue={data?.home_location ?? ""}
+                placeholder="예: 서울시 마포구 월드컵북로 123 또는 합정역"
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -115,8 +116,8 @@ export default async function ScoringSettingsPage({
                 defaultChecked={data?.transit_consent ?? false}
               />
               <span>
-                동의: 대중교통 시간을 계산할 때 Kakao 지도 API에 희망 거주
-                시/구와 해당 공고의 근무지를 전송합니다.
+                동의: 대중교통 시간을 계산할 때 입력한 출발 위치와 해당 공고의
+                근무지 주소를 Kakao 지도 API에 전송합니다.
               </span>
             </label>
           </CardContent>

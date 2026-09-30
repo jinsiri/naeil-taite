@@ -536,18 +536,18 @@ export async function analyzeJobWithAI(formData: FormData) {
   const { data: transitPreferences } = await client
     .from("scoring_preferences")
     .select(
-      "home_district,commute_ideal_minutes,commute_max_minutes,transit_consent,weights",
+      "home_location,commute_ideal_minutes,commute_max_minutes,transit_consent,weights",
     )
     .eq("user_id", user.id)
     .maybeSingle();
   if (
     transitPreferences?.transit_consent &&
-    transitPreferences.home_district &&
+    transitPreferences.home_location &&
     job.work_location &&
     process.env.KAKAO_REST_API_KEY
   ) {
     const minutes = await getPublicTransitMinutes(
-      transitPreferences.home_district,
+      transitPreferences.home_location,
       job.work_location,
       process.env.KAKAO_REST_API_KEY,
     );

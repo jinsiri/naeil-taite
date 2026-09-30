@@ -3,6 +3,9 @@ import { z } from "zod";
 const addressResponse = z.object({
   documents: z.array(z.object({ x: z.string(), y: z.string() })),
 });
+const keywordSearchResponse = z.object({
+  documents: z.array(z.object({ x: z.string(), y: z.string() })),
+});
 const routeResponse = z.object({
   routes: z.array(
     z.object({ properties: z.object({ totalTime: z.number().nonnegative() }) }),
@@ -16,9 +19,24 @@ async function coordinates(address: string, key: string) {
     headers: { Authorization: `KakaoAK ${key}` },
     signal: AbortSignal.timeout(8_000),
   });
-  if (!response.ok) return null;
-  const data = addressResponse.safeParse(
-    await response.json().catch(() => null),
+  if (response.ok) {
+    const data = addressResponse.safeParse(
+      await response.json().catch(() => null),
+    );
+    const first = data.success ? data.data.documents[0] : undefined;
+    if (first) return { x: first.x, y: first.y };
+  }
+  const keywordUrl = new URL(
+    "https://dapi.kakao.com/v2/local/search/keyword.json",
+  );
+  keywordUrl.searchParams.set("query", address);
+  const keywordResponse = await fetch(keywordUrl, {
+    headers: { Authorization: `KakaoAK ${key}` },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!keywordResponse.ok) return null;
+  const data = keywordSearchResponse.safeParse(
+    await keywordResponse.json().catch(() => null),
   );
   const first = data.success ? data.data.documents[0] : undefined;
   return first ? { x: first.x, y: first.y } : null;

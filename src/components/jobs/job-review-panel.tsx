@@ -345,8 +345,8 @@ function AnalysisResult({
               </p>
               {review && typeof review.scores._transitMinutes === "number" && (
                 <p className="text-xs text-muted-foreground">
-                  대중교통 예상 편도 {review.scores._transitMinutes}분 · 거주
-                  시/구와 근무지 대표 위치 기준
+                  대중교통 예상 편도 {review.scores._transitMinutes}분 · 입력한
+                  출발 위치와 공고 근무지 기준
                 </p>
               )}
               {review && typeof review.scores.publicTransitFit === "number" && (

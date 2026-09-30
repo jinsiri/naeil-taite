@@ -72,14 +72,14 @@ export function JobForm() {
           <Input name="deadline" type="date" className="min-h-11" />
         </label>
         <label className="space-y-2 text-sm font-medium sm:col-span-2">
-          근무지{" "}
+          근무지 주소{" "}
           <span className="text-muted-foreground">
             (대중교통 평가를 원할 때)
           </span>
           <Input
             name="workLocation"
             maxLength={160}
-            placeholder="예: 서울시 강남구 테헤란로"
+            placeholder="예: 서울시 강남구 테헤란로 123, 내일타워 8층"
             className="min-h-11"
           />
         </label>

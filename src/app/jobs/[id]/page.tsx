@@ -48,7 +48,7 @@ export default async function JobDetailPage({
   const job = jobPostingSchema.parse(jobData);
   const { data: scoringPreferences } = await client
     .from("scoring_preferences")
-    .select("home_district,transit_consent")
+    .select("home_location,transit_consent")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -156,8 +156,8 @@ export default async function JobDetailPage({
             </Button>
           </form>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            대중교통 시간은 입력한 근무지와 평가 기준에 설정한 희망 거주 시/구의
-            대표 위치로 계산합니다.
+            대중교통 예상 시간은 평가 기준에 입력한 출발 위치에서 이 근무지
+            주소까지 계산합니다. 공고에 적힌 상세 주소를 입력해 주세요.
           </p>
         </CardContent>
       </Card>
@@ -258,13 +258,13 @@ export default async function JobDetailPage({
           openAiConfigured={Boolean(process.env.OPENAI_API_KEY)}
           jobTextLength={job.original_text.length}
           transitReady={Boolean(
-            scoringPreferences?.home_district &&
+            scoringPreferences?.home_location &&
             job.work_location &&
             scoringPreferences.transit_consent &&
             process.env.KAKAO_REST_API_KEY,
           )}
           transitMissing={[
-            !scoringPreferences?.home_district && "희망 거주 시/구",
+            !scoringPreferences?.home_location && "출발 위치",
             !job.work_location && "공고 근무지",
             !scoringPreferences?.transit_consent && "경로 정보 전송 동의",
             !process.env.KAKAO_REST_API_KEY && "Kakao API 키",

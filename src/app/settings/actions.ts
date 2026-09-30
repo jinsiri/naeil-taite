@@ -8,7 +8,7 @@ import { DEFAULT_SCORE_WEIGHTS } from "@/lib/jobs/scoring";
 
 const schema = z
   .object({
-    homeDistrict: z.string().trim().max(80),
+    homeLocation: z.string().trim().max(160),
     commuteIdeal: z.coerce.number().int().min(0).max(240),
     commuteMax: z.coerce.number().int().min(1).max(300),
     transitConsent: z.boolean(),
@@ -27,7 +27,7 @@ export async function saveScoringPreferences(formData: FormData) {
   const identity = await getIdentity();
   if (!identity) redirect("/login");
   const parsed = schema.safeParse({
-    homeDistrict: formData.get("homeDistrict"),
+    homeLocation: formData.get("homeLocation"),
     commuteIdeal: formData.get("commuteIdeal"),
     commuteMax: formData.get("commuteMax"),
     transitConsent: formData.get("transitConsent") === "on",
@@ -41,7 +41,7 @@ export async function saveScoringPreferences(formData: FormData) {
   if (!parsed.success) redirect("/settings/scoring?error=invalid");
   const { error } = await identity.client.from("scoring_preferences").upsert({
     user_id: identity.user.id,
-    home_district: parsed.data.homeDistrict,
+    home_location: parsed.data.homeLocation,
     commute_ideal_minutes: parsed.data.commuteIdeal,
     commute_max_minutes: parsed.data.commuteMax,
     transit_consent: parsed.data.transitConsent,
