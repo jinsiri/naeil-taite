@@ -266,7 +266,12 @@ async function requestOllama(
       }),
       signal: AbortSignal.timeout(300_000),
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      return {
+        error:
+          "Ollama가 5분 안에 분석을 마치지 못했어요. 문서 분량이나 기기 성능 때문에 오래 걸릴 수 있으니 입력 내용을 줄여 다시 시도해 주세요.",
+      };
     return {
       error:
         "로컬 AI 서버에 연결하지 못했어요. Ollama를 실행하고 설정한 모델을 내려받았는지 확인해 주세요.",
