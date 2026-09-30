@@ -47,7 +47,7 @@ export function JobReviewPanel({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [pending, startTransition] = useTransition();
   const analysis = initial?.ai_analysis ?? null;
-  const analysisInProgress = pending && analysisStartedAt !== null;
+  const analysisInProgress = analysisStartedAt !== null;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(
     elapsedSeconds % 60,
   ).padStart(2, "0")}`;
@@ -225,7 +225,11 @@ export function JobReviewPanel({
                 {message}
               </p>
             )}
-            <Button type="submit" disabled={pending}>
+            <Button
+              type="submit"
+              disabled={pending || analysisInProgress}
+              aria-busy={analysisInProgress}
+            >
               {pending
                 ? analysisInProgress
                   ? "분석 중…"
