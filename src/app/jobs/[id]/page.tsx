@@ -13,6 +13,7 @@ import { DeleteJobButton } from "@/components/jobs/delete-job-button";
 import { saveJobWorkLocation } from "@/app/jobs/actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PipelineStageControl } from "@/components/jobs/pipeline-stage-control";
 
 const resumeChoicesSchema = z.array(
   z.object({
@@ -107,30 +108,45 @@ export default async function JobDetailPage({
         >
           ← 채용공고
         </Link>
-        <p className="mb-2 text-sm font-medium text-primary">
-          {job.company || "회사명 미입력"}
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
-        {job.work_location && (
-          <p className="mt-2 text-sm text-muted-foreground">
-            근무지 · {job.work_location}
-          </p>
-        )}
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
-          {job.deadline && <span>마감일 {job.deadline}</span>}
-          {job.source_url && (
-            <a
-              href={job.source_url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-4 hover:text-foreground"
-            >
-              공고 원문 링크 열기
-            </a>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="mb-2 text-sm font-medium text-primary">
+              {job.company || "회사명 미입력"}
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
+            {job.work_location && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                근무지 · {job.work_location}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+              {job.deadline && <span>마감일 {job.deadline}</span>}
+              {job.source_url && (
+                <a
+                  href={job.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  공고 원문 링크 열기
+                </a>
+              )}
+            </div>
+            <div className="mt-5">
+              <DeleteJobButton jobId={job.id} jobTitle={job.title} />
+            </div>
+          </div>
+          {reviewHistory[0] && (
+            <div className="w-full rounded-lg border border-primary/30 bg-primary/5 p-3 sm:w-64 sm:shrink-0">
+              <PipelineStageControl
+                jobId={job.id}
+                resumeId={reviewHistory[0].resume_id}
+                resumeVersion={reviewHistory[0].resume_version}
+                currentStage={reviewHistory[0].pipeline_stage}
+                compact
+              />
+            </div>
           )}
-        </div>
-        <div className="mt-5">
-          <DeleteJobButton jobId={job.id} jobTitle={job.title} />
         </div>
       </div>
 

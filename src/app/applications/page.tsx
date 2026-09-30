@@ -178,6 +178,15 @@ export default async function ApplicationsPage() {
                           : "마감일 미정 · "}
                         예상 통과 가능성 {review.pass_estimate}%
                       </p>
+                      <Link
+                        href={`/jobs/${job.id}?resume=${review.resume_id}:${review.resume_version}#review`}
+                        className={buttonVariants({
+                          variant: "outline",
+                          className: "min-h-10 w-full",
+                        })}
+                      >
+                        공고 상세 바로가기 <ArrowRight aria-hidden="true" />
+                      </Link>
                       <PipelineStageControl
                         jobId={job.id}
                         resumeId={review.resume_id}

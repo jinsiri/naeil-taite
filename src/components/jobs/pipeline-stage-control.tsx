@@ -10,11 +10,13 @@ export function PipelineStageControl({
   resumeId,
   resumeVersion,
   currentStage,
+  compact = false,
 }: {
   jobId: string;
   resumeId: string;
   resumeVersion: number;
   currentStage: PipelineStage;
+  compact?: boolean;
 }) {
   const [stage, setStage] = useState<PipelineStage>(currentStage);
   const [message, setMessage] = useState("");
@@ -47,7 +49,14 @@ export function PipelineStageControl({
   }
 
   return (
-    <form action={submit} className="space-y-2 border-t pt-4">
+    <form
+      action={submit}
+      className={
+        compact
+          ? "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2"
+          : "space-y-2 border-t pt-4"
+      }
+    >
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="resumeId" value={resumeId} />
       <input type="hidden" name="resumeVersion" value={resumeVersion} />
@@ -58,7 +67,7 @@ export function PipelineStageControl({
           value={stage}
           onChange={(event) => setStage(event.target.value as PipelineStage)}
           disabled={pending}
-          className="min-h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground"
+          className={`${compact ? "h-9" : "min-h-10"} w-full rounded-lg border bg-background px-3 text-sm text-foreground`}
         >
           {PIPELINE_STAGES.map((option) => (
             <option key={option} value={option}>
@@ -68,12 +77,20 @@ export function PipelineStageControl({
         </select>
       </label>
       {message && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <p
+          role="status"
+          className={`text-xs text-muted-foreground ${compact ? "col-span-2" : ""}`}
+        >
           {message}
         </p>
       )}
-      <Button type="submit" variant="outline" size="sm" disabled={pending}>
-        {pending ? "저장 중…" : "단계 변경"}
+      <Button
+        type="submit"
+        variant="outline"
+        size={compact ? "lg" : "sm"}
+        disabled={pending}
+      >
+        {pending ? "저장 중…" : compact ? "저장" : "단계 변경"}
       </Button>
     </form>
   );
