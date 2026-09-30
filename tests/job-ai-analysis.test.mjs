@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { jobAiAnalysisSchema } from "../src/lib/jobs/ai-analysis.ts";
+import {
+  getRequirementMatchSummary,
+  jobAiAnalysisSchema,
+} from "../src/lib/jobs/ai-analysis.ts";
 
 const validAnalysis = {
   summary: "직무 요구와 이력서 경험을 비교했습니다.",
@@ -69,4 +72,26 @@ test("AI job analysis rejects invalid score and unknown assessment states", () =
     }).success,
     false,
   );
+});
+
+test("요구사항 근거 일치율은 판단 보류를 제외해 계산한다", () => {
+  const result = getRequirementMatchSummary({
+    ...validAnalysis,
+    requirements: [
+      { ...validAnalysis.requirements[0], assessment: "matched" },
+      { ...validAnalysis.requirements[0], assessment: "partial" },
+      { ...validAnalysis.requirements[0], assessment: "missing" },
+      { ...validAnalysis.requirements[0], assessment: "unknown" },
+    ],
+  });
+
+  assert.deepEqual(result, {
+    matched: 1,
+    partial: 1,
+    missing: 1,
+    unknown: 1,
+    assessable: 3,
+    aligned: 2,
+    rate: 67,
+  });
 });

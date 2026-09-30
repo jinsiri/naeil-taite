@@ -5,7 +5,10 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { analyzeJobWithAI, rollbackJobReview } from "@/app/jobs/review-actions";
-import type { JobAiAnalysis } from "@/lib/jobs/ai-analysis";
+import {
+  getRequirementMatchSummary,
+  type JobAiAnalysis,
+} from "@/lib/jobs/ai-analysis";
 import type { ReviewSnapshot } from "@/lib/jobs/review-schema";
 import type { ReviewScores } from "@/lib/jobs/scoring";
 import { OLLAMA_MAX_JOB_POSTING_CHARACTERS } from "@/lib/jobs/ai-analysis-limits";
@@ -296,6 +299,7 @@ function AnalysisResult({
   pending: boolean;
   onRestore: (snapshot: ReviewSnapshot) => void;
 }) {
+  const matchSummary = getRequirementMatchSummary(analysis);
   return (
     <>
       <Card>
@@ -317,6 +321,27 @@ function AnalysisResult({
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-sm leading-7">{analysis.summary}</p>
+          <div className="rounded-xl border bg-primary/5 p-5">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">요구사항 근거 일치율</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  AI가 판정 가능한 요구사항 중 근거 확인 또는 일부 근거가 연결된
+                  비율입니다.
+                </p>
+              </div>
+              <p className="text-3xl font-bold tabular-nums">
+                {matchSummary.rate === null ? "—" : `${matchSummary.rate}%`}
+              </p>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              근거 확인 {matchSummary.matched} · 일부 근거{" "}
+              {matchSummary.partial} · 자료상 미확인 {matchSummary.missing} ·
+              판단 보류 {matchSummary.unknown}
+              {matchSummary.assessable === 0 &&
+                " · 판정 가능한 요구사항이 없어 비율을 계산하지 않았습니다."}
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {[
               ["직무 정체성", analysis.roleIdentity.role],
@@ -369,6 +394,10 @@ function AnalysisResult({
 
           <section className="space-y-3">
             <h3 className="font-semibold">요구사항별 이력서 근거</h3>
+            <p className="text-sm text-muted-foreground">
+              의미와 인용 근거를 바탕으로 한 AI 판정입니다. 판단 보류는 일치율
+              계산에서 제외했습니다.
+            </p>
             {analysis.requirements.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 비교 가능한 요구사항을 찾지 못했습니다.

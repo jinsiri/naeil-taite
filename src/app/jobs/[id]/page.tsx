@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { requireIdentity } from "@/lib/resumes/data";
 import { jobPostingSchema } from "@/lib/jobs/schema";
-import { extractRequirements, compareRequirement } from "@/lib/jobs/matching";
-import { versionSchema } from "@/lib/resumes/schema";
 import { isJobPostingsTableMissing } from "@/lib/jobs/schema";
 import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
 import { JobReviewPanel } from "@/components/jobs/job-review-panel";
@@ -26,19 +24,6 @@ const resumeChoicesSchema = z.array(
     ),
   }),
 );
-
-function statusLabel(status: "matched" | "partial" | "unknown") {
-  if (status === "matched") return "문구 직접 일치";
-  if (status === "partial") return "일부 단어 확인";
-  return "확인 필요";
-}
-
-function statusStyle(status: "matched" | "partial" | "unknown") {
-  if (status === "matched") return "bg-primary/10 text-primary";
-  if (status === "partial")
-    return "bg-amber-500/10 text-amber-800 dark:text-amber-300";
-  return "bg-secondary text-muted-foreground";
-}
 
 export default async function JobDetailPage({
   params,
@@ -80,26 +65,6 @@ export default async function JobDetailPage({
   const selectedVersion = requestedVersionExists
     ? requestedVersion
     : defaultResume?.current_version;
-
-  let selected = null;
-  if (selectedResume && selectedVersion) {
-    const { data, error } = await client
-      .from("resume_versions")
-      .select("*")
-      .eq("resume_id", selectedResume.id)
-      .eq("user_id", user.id)
-      .eq("version", selectedVersion)
-      .maybeSingle();
-    if (error) throw new Error("이력서 버전을 불러오지 못했어요.");
-    if (data) selected = versionSchema.parse(data);
-  }
-
-  const requirements = extractRequirements(job.original_text);
-  const matches = selected
-    ? requirements.map((requirement) =>
-        compareRequirement(requirement, selected.content),
-      )
-    : [];
 
   let reviewHistory: ReturnType<typeof reviewSnapshotSchema.parse>[] = [];
   if (selectedResume && selectedVersion) {
@@ -167,20 +132,21 @@ export default async function JobDetailPage({
         </CardContent>
       </Card>
 
-      <section id="comparison" className="scroll-mt-6 space-y-5">
+      <section className="space-y-5" aria-labelledby="analysis-resume-heading">
         <div>
-          <h2 className="text-2xl font-semibold">이력서 버전과 대조</h2>
+          <h2 id="analysis-resume-heading" className="text-2xl font-semibold">
+            분석할 이력서 버전
+          </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            원문에서 문장을 나누고 이력서에서 같은 표현을 찾습니다. 비슷한
-            의미나 문맥은 판단하지 않으므로 결과를 직접 확인해 주세요.
+            선택한 버전과 공고를 AI가 의미와 근거를 중심으로 비교합니다.
           </p>
         </div>
         {resumes.length === 0 ? (
           <Card>
             <CardContent className="space-y-4 py-8">
-              <h3 className="text-lg font-semibold">비교할 이력서가 없어요</h3>
+              <h3 className="text-lg font-semibold">분석할 이력서가 없어요</h3>
               <p className="text-sm text-muted-foreground">
-                이력서와 버전을 먼저 등록하면 공고와 대조할 수 있어요.
+                이력서를 등록하면 공고와 AI 분석을 실행할 수 있어요.
               </p>
               <Link
                 href="/resumes/new"
@@ -200,7 +166,7 @@ export default async function JobDetailPage({
                 className="min-w-64 flex-1 space-y-2 text-sm font-medium"
                 htmlFor="resume-version"
               >
-                비교할 이력서 버전
+                이력서 버전
                 <select
                   id="resume-version"
                   name="resume"
@@ -236,63 +202,13 @@ export default async function JobDetailPage({
                   className: "min-h-11 px-4",
                 })}
               >
-                이 버전과 비교하기
+                버전 선택
               </button>
             </form>
-            {selected && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  {selected.title} · v{selected.version} 기준
-                </p>
-                {matches.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-6 text-sm text-muted-foreground">
-                      공고에서 비교할 만한 문장을 찾지 못했어요. 공고 원문을
-                      확인해 주세요.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {matches.map((match, index) => (
-                      <Card key={`${index}-${match.requirement}`}>
-                        <CardContent className="space-y-3 p-5">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <p className="flex-1 text-sm leading-6">
-                              {match.requirement}
-                            </p>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyle(match.status)}`}
-                            >
-                              {statusLabel(match.status)}
-                            </span>
-                          </div>
-                          {match.evidence ? (
-                            <blockquote className="border-l-2 border-primary/40 pl-3 text-sm leading-6 text-muted-foreground">
-                              {match.evidence}
-                            </blockquote>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              이력서 원문에서 같은 단어를 찾지 못했어요. 빠진
-                              경력이라는 뜻은 아니며, 직접 확인해 주세요.
-                            </p>
-                          )}
-                          {match.status === "partial" &&
-                            match.matchedTerms.length > 0 && (
-                              <p className="text-xs text-muted-foreground">
-                                일치한 단어: {match.matchedTerms.join(", ")}
-                              </p>
-                            )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </>
         )}
       </section>
-      {selected && selectedResume && selectedVersion && (
+      {selectedResume && selectedVersion && (
         <JobReviewPanel
           jobId={job.id}
           resumeId={selectedResume.id}

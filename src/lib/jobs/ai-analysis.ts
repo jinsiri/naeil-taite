@@ -57,6 +57,36 @@ export const jobAiAnalysisSchema = z.strictObject({
 
 export type JobAiAnalysis = z.infer<typeof jobAiAnalysisSchema>;
 
+export function getRequirementMatchSummary(analysis: JobAiAnalysis) {
+  const requirements = analysis.requirements;
+  const matched = requirements.filter(
+    (item) => item.assessment === "matched",
+  ).length;
+  const partial = requirements.filter(
+    (item) => item.assessment === "partial",
+  ).length;
+  const missing = requirements.filter(
+    (item) => item.assessment === "missing",
+  ).length;
+  const unknown = requirements.filter(
+    (item) => item.assessment === "unknown",
+  ).length;
+  const assessable = matched + partial + missing;
+
+  return {
+    matched,
+    partial,
+    missing,
+    unknown,
+    assessable,
+    aligned: matched + partial,
+    rate:
+      assessable > 0
+        ? Math.round(((matched + partial) / assessable) * 100)
+        : null,
+  };
+}
+
 const scoreJsonSchema = {
   type: "object",
   additionalProperties: false,
