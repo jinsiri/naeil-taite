@@ -56,6 +56,10 @@ export const jobAiAnalysisSchema = z.strictObject({
 });
 
 export type JobAiAnalysis = z.infer<typeof jobAiAnalysisSchema>;
+export const jobAiAnalysisDraftSchema = jobAiAnalysisSchema.omit({
+  companyResearch: true,
+});
+export type JobAiAnalysisDraft = z.infer<typeof jobAiAnalysisDraftSchema>;
 
 export function getRequirementMatchSummary(analysis: JobAiAnalysis) {
   const requirements = analysis.requirements;
@@ -164,23 +168,6 @@ export const jobAiAnalysisJsonSchema = {
         ],
       },
     },
-    companyResearch: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        summary: { type: "string" },
-        sources: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: { title: { type: "string" }, url: { type: "string" } },
-            required: ["title", "url"],
-          },
-        },
-      },
-      required: ["summary", "sources"],
-    },
   },
   required: [
     "summary",
@@ -191,6 +178,5 @@ export const jobAiAnalysisJsonSchema = {
     "opportunityReason",
     "mainRisk",
     "requirements",
-    "companyResearch",
   ],
 } as const;

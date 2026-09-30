@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getRequirementMatchSummary,
+  jobAiAnalysisDraftSchema,
   jobAiAnalysisSchema,
 } from "../src/lib/jobs/ai-analysis.ts";
 
@@ -50,9 +51,20 @@ const validAnalysis = {
     sources: [{ title: "공식 사이트", url: "https://example.com" }],
   },
 };
+const validDraft = Object.fromEntries(
+  Object.entries(validAnalysis).filter(([key]) => key !== "companyResearch"),
+);
 
 test("AI job analysis accepts grounded structured results", () => {
   assert.equal(jobAiAnalysisSchema.parse(validAnalysis).requirements.length, 1);
+  assert.equal(
+    jobAiAnalysisDraftSchema.parse(validDraft).requirements.length,
+    1,
+  );
+  assert.equal(
+    jobAiAnalysisDraftSchema.safeParse(validAnalysis).success,
+    false,
+  );
 });
 
 test("AI job analysis rejects invalid score and unknown assessment states", () => {
