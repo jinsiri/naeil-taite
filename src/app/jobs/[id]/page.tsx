@@ -14,6 +14,9 @@ import { saveJobWorkLocation } from "@/app/jobs/actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PipelineStageControl } from "@/components/jobs/pipeline-stage-control";
+import { ApplicationReflectionPanel } from "@/components/jobs/application-reflection-panel";
+import { applicationReflectionSchema } from "@/lib/jobs/reflection-schema";
+import { PIPELINE_STAGES } from "@/lib/jobs/scoring";
 
 const resumeChoicesSchema = z.array(
   z.object({
@@ -75,26 +78,52 @@ export default async function JobDetailPage({
     ? requestedVersion
     : defaultResume?.current_version;
 
-  let reviewHistory: ReturnType<typeof reviewSnapshotSchema.parse>[] = [];
-  if (selectedResume && selectedVersion) {
-    const { data, error } = await client
-      .from("job_reviews")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("job_posting_id", job.id)
-      .eq("resume_id", selectedResume.id)
-      .eq("resume_version", selectedVersion)
-      .order("snapshot_number", { ascending: false });
-    if (error && (error.code === "42P01" || error.code === "PGRST205"))
-      return (
-        <JobMigrationNotice
-          migrationFile="202609280002_job_reviews.sql"
-          feature="평가와 지원 이력"
-        />
-      );
-    if (error) throw new Error("평가 이력을 불러오지 못했어요.");
-    reviewHistory = z.array(reviewSnapshotSchema).parse(data);
-  }
+  const { data: reviewData, error: reviewError } = await client
+    .from("job_reviews")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("job_posting_id", job.id)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (
+    reviewError &&
+    (reviewError.code === "42P01" || reviewError.code === "PGRST205")
+  )
+    return (
+      <JobMigrationNotice
+        migrationFile="202609280002_job_reviews.sql"
+        feature="평가와 지원 이력"
+      />
+    );
+  if (reviewError) throw new Error("평가 이력을 불러오지 못했어요.");
+  const jobReviewHistory = z.array(reviewSnapshotSchema).parse(reviewData);
+  const reviewHistory = jobReviewHistory.filter(
+    (review) =>
+      review.resume_id === selectedResume?.id &&
+      review.resume_version === selectedVersion,
+  );
+
+  const { data: reflectionData, error: reflectionError } = await client
+    .from("application_reflections")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("job_posting_id", job.id)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (
+    reflectionError &&
+    (reflectionError.code === "42P01" || reflectionError.code === "PGRST205")
+  )
+    return (
+      <JobMigrationNotice
+        migrationFile="202610010001_application_reflections.sql"
+        feature="지원 단계별 회고 기록"
+      />
+    );
+  if (reflectionError) throw new Error("지원 회고를 불러오지 못했어요.");
+  const reflections = z
+    .array(applicationReflectionSchema)
+    .parse(reflectionData);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -136,19 +165,28 @@ export default async function JobDetailPage({
               <DeleteJobButton jobId={job.id} jobTitle={job.title} />
             </div>
           </div>
-          {reviewHistory[0] && (
+          {jobReviewHistory[0] && (
             <div className="w-full rounded-lg border border-primary/30 bg-primary/5 p-3 sm:w-64 sm:shrink-0">
               <PipelineStageControl
                 jobId={job.id}
-                resumeId={reviewHistory[0].resume_id}
-                resumeVersion={reviewHistory[0].resume_version}
-                currentStage={reviewHistory[0].pipeline_stage}
+                resumeId={jobReviewHistory[0].resume_id}
+                resumeVersion={jobReviewHistory[0].resume_version}
+                currentStage={jobReviewHistory[0].pipeline_stage}
                 compact
               />
             </div>
           )}
         </div>
       </div>
+
+      <ApplicationReflectionPanel
+        jobId={job.id}
+        currentStage={jobReviewHistory[0]?.pipeline_stage ?? PIPELINE_STAGES[0]}
+        stageChanges={jobReviewHistory.filter((review) =>
+          review.change_reason.startsWith("지원 단계 변경:"),
+        )}
+        reflections={reflections}
+      />
 
       <Card>
         <CardHeader>
