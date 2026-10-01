@@ -1,86 +1,140 @@
 # 내일나이테
 
-Next.js App Router와 TypeScript로 개발하는 내일나이테 웹 서비스입니다.
+이력서·채용공고·지원 과정을 한곳에서 관리하는 한국어 웹 서비스입니다.
 
-## 개발 환경
+## 주요 기능
 
-- Node.js 24.x (`.nvmrc` 기준)
-- pnpm 10.10.0 (`package.json`의 `packageManager` 기준)
+- **이력서 관리:** PDF·DOCX·TXT에서 내용 추출, 직접 편집, 버전 보관
+- **공고 관리:** 공고 원문과 마감일 저장
+- **근거 기반 분석:** 이력서와 공고 비교, AI 제안 검토
+- **지원 관리:** 전형 단계, 변경 이력, 공고별 회고 기록
+- **출퇴근 평가:** 설정한 출발 위치부터 공고 근무지까지 대중교통 시간 반영
 
-nvm을 사용한다면 다음 명령으로 Node 버전을 맞춥니다.
+## 빠른 시작
+
+### 필요 환경
+
+- Node.js 24.x (`.nvmrc`)
+- pnpm 10.10.0 (`package.json`)
 
 ```bash
 nvm install
 nvm use
-```
-
-pnpm 10.10.0을 설치한 환경에서 의존성을 설치하고 개발 서버를 실행합니다.
-
-```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-브라우저에서 <http://localhost:3000>에 접속합니다.
+브라우저에서 <http://localhost:3000>을 엽니다.
 
-## 주요 명령어
+### 자주 쓰는 명령어
 
-| 명령어              | 용도                                        |
-| ------------------- | ------------------------------------------- |
-| `pnpm dev`          | 개발 서버 실행                              |
-| `pnpm lint`         | ESLint 검사                                 |
-| `pnpm typecheck`    | Next.js 라우트 타입 생성 후 TypeScript 검사 |
-| `pnpm format`       | Prettier 서식 적용                          |
-| `pnpm format:check` | 서식 검사                                   |
-| `pnpm build`        | 프로덕션 빌드                               |
-| `pnpm start`        | 빌드 결과로 프로덕션 서버 실행              |
-
-`LayoutProps` 등 Next.js 생성 타입을 사용하므로, 별도 타입 검사는 `pnpm typecheck`로 실행합니다.
-현재 Geist 폰트를 `next/font/google`로 불러오므로 빌드 시 Google Fonts에 접근할 수 있어야 합니다.
+| 명령어              | 용도                                 |
+| ------------------- | ------------------------------------ |
+| `pnpm dev`          | 개발 서버                            |
+| `pnpm lint`         | ESLint 검사                          |
+| `pnpm typecheck`    | Next.js 타입 생성 및 TypeScript 검사 |
+| `pnpm format`       | Prettier 적용                        |
+| `pnpm format:check` | 서식 검사                            |
+| `pnpm build`        | 프로덕션 빌드                        |
+| `pnpm start`        | 프로덕션 서버                        |
 
 ## 프로젝트 구조
 
-- `src/app`: 페이지, 루트 레이아웃, 전역 스타일
-- `src/components/ui`: shadcn UI 컴포넌트
-- `src/lib`: 공통 유틸리티
-- `public`: 정적 파일
-- `.github/workflows/ci.yml`: 자동 검증
+- `src/app` — 페이지와 서버 액션
+- `src/components` — 화면 및 UI 컴포넌트
+- `src/lib` — 도메인 로직과 공통 유틸리티
+- `supabase/migrations` — DB 스키마 변경
+- `supabase/tests` — RLS·DB 검증용 SQL
+- `tests` — Node.js 단위 테스트
+- `.github/workflows/ci.yml` — GitHub Actions 검사
 
-UI는 Tailwind CSS와 shadcn을 사용합니다. 이력서 기능은 Supabase 인증·DB와 로컬(기기) 첨부 파일 저장소를 사용합니다. 기본 레이아웃은 환경변수 없이 확인할 수 있습니다.
+기술 구성: Next.js App Router · TypeScript · Tailwind CSS · shadcn · Supabase
 
-## 자동 검증
+## 서비스 설정
 
-GitHub Actions는 `main` 브랜치 push와 pull request에서 의존성을 lockfile 기준으로 설치하고 lint, 타입, 서식, 프로덕션 빌드를 순서대로 검사합니다. Actions 화면에서 수동 실행할 수도 있습니다.
+### 1. 환경 변수
 
-로컬과 CI 모두 `.nvmrc`의 Node 버전과 `package.json`의 pnpm 버전을 사용합니다.
+`.env.example`을 복사해 `.env.local`을 만들고 필요한 값을 입력합니다.
 
-## 이력서와 채용공고 기능 설정
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-mini
+```
 
-1. `.env.example`을 참고해 `.env.local`에 Supabase 설정을 지정합니다. 공고 분석 화면에서 무료 로컬 Ollama 또는 OpenAI API를 선택할 수 있습니다. Ollama를 사용하려면 Ollama를 설치하고 `ollama pull qwen3:8b`를 실행합니다. OpenAI를 사용하려면 서버 전용 `OPENAI_API_KEY`를 지정하고 선택적으로 `OPENAI_MODEL`을 설정합니다. 로컬 모드에서는 `OLLAMA_BASE_URL`과 `OLLAMA_MODEL`을 선택적으로 지정할 수 있습니다. Supabase `service_role` 키와 OpenAI 키를 `NEXT_PUBLIC_` 변수로 만들지 않습니다.
-2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202609230001_resumes.sql`, `supabase/migrations/202609280001_job_postings.sql`, `supabase/migrations/202609280002_job_reviews.sql`, `supabase/migrations/202609280003_ai_job_reviews.sql`, `supabase/migrations/202609300001_job_posting_delete.sql`을 순서대로 적용합니다.
-3. Supabase Auth에서 Email 인증을 활성화하고 Site URL을 개발 시 `http://localhost:3000`으로 설정합니다.
-4. 가입 확인 메일(Confirm signup)의 링크를 `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`로 설정합니다. 인증 후 고정된 `/resumes` 경로로 이동합니다.
-5. 개발 서버를 다시 시작하고 `/login`에서 가입 및 로그인합니다. `/jobs`에서 공고를 저장하고 상세 화면에서 이력서 버전을 선택한 뒤, 데이터 처리에 동의하고 AI 분석을 실행합니다. `/applications`에서 최신 평가 우선순위와 지원 단계별 현황을 확인하고 단계를 바로 변경할 수 있습니다.
+선택 설정:
 
-기본 OpenAI 모드는 선택한 이력서 버전과 공고 원문을 OpenAI Responses API로 분석합니다. 회사명은 웹 검색에 사용될 수 있으며, 전송 전 화면에서 매번 동의를 받습니다. `store: false`를 지정하지만 제공자 측 데이터 처리는 API 계정 설정과 정책을 확인해야 합니다. 로컬 Ollama 모드는 해당 컴퓨터의 Ollama 서버에서 분석하고 회사 웹 검색은 수행하지 않습니다. 웹 앱 서버가 다른 컴퓨터에서 실행 중이면 `OLLAMA_BASE_URL`은 그 서버가 접근할 수 있는 Ollama 주소여야 합니다. 분석 결과는 근거 인용과 함께 이력으로 저장하고 원문 이력서에는 자동 반영하지 않습니다.
+- Ollama: `OLLAMA_BASE_URL`, `OLLAMA_MODEL`
+- 이력서 파일 저장 경로: `RESUME_STORAGE_DIR`
+- 대중교통 예상 시간: `KAKAO_REST_API_KEY`
 
-Ollama 로컬 분석은 공고 원문 12,000자까지 지원하며, 제한을 넘는 원문은 잘라내지 않고 분석 요청을 막습니다. 원문은 저장된 상태로 유지됩니다. Ollama는 브라우저가 아니라 앱 서버에서 호출합니다. 저장소를 포크해 본인 컴퓨터에서 실행하면 그 컴퓨터에 설치한 Ollama를 사용할 수 있지만, Vercel 배포 앱은 사용자의 컴퓨터에 설치된 Ollama에 접근할 수 없습니다. Vercel에서도 Ollama를 사용하려면 Vercel 서버가 네트워크로 접근할 수 있는 별도 Ollama 서버를 운영하고 `OLLAMA_BASE_URL`을 설정해야 합니다.
+`OPENAI_API_KEY`와 Supabase `service_role` 키는 `NEXT_PUBLIC_` 변수로 설정하지 마세요.
 
-공고 상세 화면에서 공고를 삭제할 수 있습니다. 삭제를 확인하면 공고와 연결된 AI 평가·지원 이력도 함께 영구 삭제됩니다.
+### 2. Supabase 데이터베이스
 
-이력서는 PDF·DOCX·TXT 파일을 첨부하면 텍스트를 자동 추출해 편집 칸에 미리 채웁니다. 최대 10MB, PDF는 최대 50페이지까지 처리하며 이미지 스캔 PDF는 OCR을 지원하지 않습니다. 추출을 위해 선택한 파일이 로그인된 사용자의 요청으로 앱 서버에 전송되지만, Supabase나 별도 AI 서비스로 전달되거나 원본 로컬 저장소에 저장되지는 않습니다. 사용자가 추출 내용을 검토·수정한 뒤 등록을 눌러야 본문이 Supabase DB에, 원본 파일이 로컬(기기) 디스크에 저장됩니다. TXT는 UTF-8 형식이어야 합니다. 이력서는 이름·자유 형식 본문·변경 메모로 등록합니다. 최초 등록 시 v1, 수정 저장 시 새 버전이 생성됩니다. 이전 버전의 복원은 현재 내용을 바꾸는 새 버전을 추가하며 기존 기록을 보존합니다. 동시 수정은 부모 행 잠금과 예상 버전 비교로 충돌을 감지합니다. 사용자의 저장·복원 승인은 각 버전의 `approved_at`, 복원 출처는 `restored_from_version`에 기록합니다.
+아래 마이그레이션을 **순서대로** Supabase SQL Editor 또는 마이그레이션 도구에서 적용합니다.
 
-### 파일 저장
+```text
+supabase/migrations/202609230001_resumes.sql
+supabase/migrations/202609280001_job_postings.sql
+supabase/migrations/202609280002_job_reviews.sql
+supabase/migrations/202609280003_ai_job_reviews.sql
+supabase/migrations/202609300001_job_posting_delete.sql
+supabase/migrations/202609300002_scoring_preferences.sql
+supabase/migrations/202609300003_scoring_origin_location.sql
+supabase/migrations/202610010001_application_reflections.sql
+```
 
-- PDF, DOCX, TXT 파일 1개를 버전별로 첨부할 수 있습니다(최대 10MB). 추출된 내용과 별개로 원본 파일도 보관합니다.
-- 첨부 없이 수정하면 직전 첨부를 유지합니다. 새 파일을 첨부해도 이전 버전 파일은 남습니다.
-- 기본 경로는 `.data/resumes/<user-id>/<file-id>`이며 Git 및 공개 정적 파일 경로에서 제외합니다. 원본 파일명을 디스크 경로로 사용하지 않습니다.
-- `RESUME_STORAGE_DIR`로 저장 위치를 지정할 수 있습니다. 배포 시 영속 디스크가 있는 Node.js 서버가 필요하며 여러 서버를 운영하면 공유 볼륨이 필요합니다. 임시 파일 시스템을 사용하는 서버리스 환경에는 그대로 배포하지 않습니다.
-- 파일을 포함한 로컬 디렉터리와 Supabase DB를 함께 백업해야 합니다. DB만 복구하면 원본 첨부를 내려받을 수 없습니다.
-- 다운로드할 때마다 로그인 사용자와 버전 소유권을 확인합니다. 파일은 실행·미리보기 없이 다운로드로 제공됩니다. 확장자와 PDF/ZIP 헤더 검사는 완전한 문서 유효성 검사나 악성코드 검사를 대신하지 않습니다.
-- 파일 기록 후 DB 오류가 발생하면 전송 결과가 불확실할 수 있어 파일을 즉시 삭제하지 않습니다. 미참조 파일 정리는 백업과 DB 참조 확인 후 별도 운영 작업으로 수행합니다.
+### 3. 이메일 로그인
 
-### 검증
+- Supabase Auth에서 Email 인증을 활성화합니다.
+- 개발용 Site URL: `http://localhost:3000`
+- Confirm signup 링크:
+
+```text
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+```
+
+가입 후 `/login`에서 로그인합니다.
+
+## AI 분석
+
+분석 화면에서 OpenAI 또는 로컬 Ollama를 선택합니다.
+
+| 방식   | 설정 및 처리                                                                                                                                    |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI | 서버 전용 API 키 필요. 회사명은 웹 검색에 사용될 수 있으며, 전송 전 동의를 받습니다. `store: false`를 사용해도 제공자 정책은 별도로 적용됩니다. |
+| Ollama | `ollama pull qwen3:8b` 후 사용. 분석 요청은 앱 서버에서 Ollama로 전달되며 회사 웹 검색은 하지 않습니다.                                         |
+
+- Ollama 분석은 공고 원문 최대 12,000자까지 지원합니다. 초과하면 원문을 자르지 않고 분석을 중단합니다.
+- 배포 앱에서 Ollama를 쓰려면 앱 서버가 접근할 수 있는 Ollama 주소를 `OLLAMA_BASE_URL`에 설정합니다. 사용자 컴퓨터의 Ollama에는 원격 서버가 자동으로 접근할 수 없습니다.
+- 분석 결과는 근거와 함께 이력으로 저장합니다. 원본 이력서는 자동으로 수정하지 않습니다.
+
+## 이력서 파일과 저장
+
+- PDF·DOCX·TXT, 파일당 최대 10MB. PDF는 최대 50페이지이며 이미지 스캔본 OCR은 지원하지 않습니다.
+- 텍스트 추출을 위해 파일은 로그인 사용자의 요청으로 앱 서버에 전송됩니다. Supabase나 AI 서비스로 보내지 않습니다.
+- 추출 내용을 확인하고 저장한 뒤 본문은 Supabase에, 원본 파일은 앱 서버의 로컬 디스크에 저장합니다.
+- TXT는 UTF-8 형식이어야 합니다. 이력서는 직접 작성하거나 추출 내용을 편집할 수 있습니다.
+- 수정·복원은 기존 기록을 덮어쓰지 않고 새 버전을 만듭니다. 동시 수정은 버전 비교로 충돌을 감지합니다.
+
+기본 파일 경로는 `.data/resumes/<user-id>/<file-id>`입니다. 경로를 바꾸려면 `RESUME_STORAGE_DIR`을 설정합니다.
+
+### 배포·백업 주의사항
+
+- 파일 저장에는 영속 디스크가 있는 Node.js 서버가 필요합니다.
+- 여러 앱 서버를 운영한다면 공유 볼륨을 사용해야 합니다.
+- DB와 파일 저장 디렉터리를 함께 백업하세요. DB만 복구하면 첨부 파일을 받을 수 없습니다.
+- 첨부 다운로드 때마다 사용자와 파일 소유권을 확인합니다. 파일은 미리보기 없이 다운로드로 제공됩니다.
+
+## 데이터 처리 주의사항
+
+- 공고 삭제를 확인하면 연결된 AI 평가와 지원 기록도 영구 삭제됩니다.
+- CI는 `main` 브랜치 push, pull request, 수동 실행에서 lint·타입·서식·빌드를 검사합니다.
+- 프로덕션 빌드에서 Geist 폰트를 가져오므로 Google Fonts에 접근할 수 있어야 합니다.
+
+## 검증
 
 ```bash
 node --test tests/*.test.mjs
@@ -90,8 +144,11 @@ pnpm format:check
 pnpm build
 ```
 
-`supabase/tests/resumes.sql`은 마이그레이션이 적용된 **테스트 DB**에서 관리자 역할로 실행합니다. 테스트 사용자 생성, 타 사용자 조회·수정·복원 차단, 익명 접근 차단, 버전 수정·삭제 차단, 충돌 감지, 원본 유지, 복원, 실패한 저장의 롤백을 확인한 뒤 전체 트랜잭션을 롤백합니다. 실제 프로젝트의 이메일 가입·세션 갱신·첨부 다운로드 흐름은 Supabase 설정 후 별도로 확인합니다.
+DB 검증 SQL은 **테스트용 Supabase DB**에서 실행합니다. 테스트 SQL은 끝에서 트랜잭션을 롤백합니다.
 
-`supabase/tests/job_postings.sql`도 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 사용자 소유권에 따른 읽기·쓰기 격리, 공고 원문의 수정 방지, 타 사용자 공고 생성 차단을 확인한 뒤 전체 트랜잭션을 롤백합니다. 이력서 대조는 동일 표현을 찾는 단순 문자열 비교이며 의미 유사성이나 충족 여부를 판단하지 않습니다.
+- `supabase/tests/resumes.sql` — 소유권, 버전 보존·복원, 충돌 처리
+- `supabase/tests/job_postings.sql` — 공고 소유권과 원문 보호
+- `supabase/tests/job_reviews.sql` — 평가 스냅샷, 지원 단계, 복원
+- `supabase/tests/scoring_preferences.sql` — 평가 설정과 RLS 정책
 
-`supabase/tests/job_reviews.sql`은 네 마이그레이션이 적용된 **테스트 DB**에서 실행합니다. 평가 스냅샷 추가, 타 사용자 데이터 격리, 직접 변경 차단, 지원 시작 시 통과 가능성 고정 및 복원 시 새 이력 추가를 확인한 뒤 전체 트랜잭션을 롤백합니다. 점수 산식은 `tests/job-scoring.test.mjs`에서 확인합니다.
+AI 이력서 대조는 의미를 이해하는 판정이 아닙니다. 근거 확인을 위한 보조 정보로 사용하세요.
