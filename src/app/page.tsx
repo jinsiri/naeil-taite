@@ -165,11 +165,22 @@ export default async function Home() {
       );
     })
     .sort((a, b) => (a.deadline ?? "").localeCompare(b.deadline ?? ""));
+  const prioritizedReviews = latestReviews
+    .filter((review) => !completed.includes(review.pipeline_stage))
+    .sort((a, b) => b.priority_score - a.priority_score);
+  const priorityRankByJob = new Map<string, number>();
+  let priorityRank = 0;
+  prioritizedReviews.forEach((review, index) => {
+    if (
+      index === 0 ||
+      review.priority_score !== prioritizedReviews[index - 1].priority_score
+    )
+      priorityRank = index + 1;
+    priorityRankByJob.set(review.job_posting_id, priorityRank);
+  });
   const focusJobs = upcoming.length
     ? upcoming.slice(0, 4)
-    : latestReviews
-        .filter((review) => !completed.includes(review.pipeline_stage))
-        .sort((a, b) => b.priority_score - a.priority_score)
+    : prioritizedReviews
         .slice(0, 4)
         .map((review) => jobById.get(review.job_posting_id)!)
         .filter(Boolean);
@@ -251,7 +262,7 @@ export default async function Home() {
           <CardContent>
             {focusJobs.length ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[30rem] border-collapse text-left">
+                <table className="w-full min-w-[38rem] border-collapse text-left">
                   <thead>
                     <tr className="border-b text-xs text-muted-foreground">
                       <th scope="col" className="py-2 pr-4 font-medium">
@@ -262,15 +273,22 @@ export default async function Home() {
                       </th>
                       <th
                         scope="col"
+                        className="px-4 py-2 text-right font-medium"
+                      >
+                        우선순위
+                      </th>
+                      <th
+                        scope="col"
                         className="py-2 pl-4 text-right font-medium"
                       >
-                        {upcoming.length ? "마감까지" : "우선순위"}
+                        마감일
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {focusJobs.map((job) => {
                       const review = latestByJob.get(job.id);
+                      const rank = priorityRankByJob.get(job.id);
                       const days = job.deadline
                         ? daysUntil(job.deadline, today)
                         : null;
@@ -292,20 +310,37 @@ export default async function Home() {
                           <td className="px-4 py-3 text-sm text-muted-foreground">
                             {review?.pipeline_stage ?? "아직 평가 전"}
                           </td>
-                          <td className="py-3 pl-4 text-right text-sm font-medium tabular-nums">
-                            {days !== null
-                              ? days === 0
-                                ? "오늘"
-                                : `D-${days}`
-                              : review
-                                ? review.priority_score
-                                : "—"}
+                          <td className="px-4 py-3 text-right text-sm font-medium whitespace-nowrap tabular-nums">
+                            {rank !== undefined ? `${rank}위` : "평가 전"}
+                          </td>
+                          <td className="py-3 pl-4 text-right text-sm whitespace-nowrap tabular-nums">
+                            <span className="block font-medium">
+                              {days === null
+                                ? "확인불가"
+                                : days < 0
+                                  ? "공고마감"
+                                  : days === 0
+                                    ? "D-day"
+                                    : `D-${days}`}
+                            </span>
+                            {job.deadline && (
+                              <time
+                                dateTime={job.deadline}
+                                className="mt-1 block text-xs text-muted-foreground"
+                              >
+                                {job.deadline}
+                              </time>
+                            )}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                  진행 중인 평가 공고끼리 비교한 순위이며, 같은 점수는 같은
+                  순위로 표시합니다. 합격 확률을 뜻하지 않습니다.
+                </p>
               </div>
             ) : (
               <div className="py-8 text-center">
