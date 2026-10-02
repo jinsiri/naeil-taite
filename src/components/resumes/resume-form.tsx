@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { resumeInputSchema, type ResumeInput } from "@/lib/resumes/schema";
+import { createClient } from "@/lib/supabase/client";
+import {
+  RESUME_BUCKET,
+  fileContentType,
+  uploadInputSchema,
+} from "@/lib/resumes/storage-schema";
+import { prepareResumeUpload } from "@/app/resumes/upload-actions";
+import { PendingUploads } from "./pending-uploads";
 import { extractResumeContent } from "@/app/resumes/actions";
 
 export function ResumeForm({
@@ -14,10 +22,10 @@ export function ResumeForm({
   onSave,
 }: {
   initial?: ResumeInput;
-  onSave: (values: ResumeInput, file?: File) => Promise<string | undefined>;
+  onSave: (values: ResumeInput, fileId?: string) => Promise<string | undefined>;
 }) {
   const [error, setError] = useState("");
-  const [file, setFile] = useState<File>();
+  const [file, setFile] = useState<string>();
   const [consent, setConsent] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionMessage, setExtractionMessage] = useState("");
@@ -109,18 +117,53 @@ export function ResumeForm({
                 input.value = "";
                 return;
               }
+              if (
+                !uploadInputSchema.safeParse({
+                  name: selected.name,
+                  size: selected.size,
+                }).success
+              ) {
+                setError("PDF·DOCX·TXT 파일을 10MB 이하로 선택해 주세요.");
+                input.value = "";
+                return;
+              }
+              if (
+                !window.confirm(
+                  "원본 파일을 Supabase 비공개 저장소에 전송하고 서버에서 내용을 추출할까요? 저장하지 않은 파일은 ‘미저장 업로드 정리하기’에서 삭제할 수 있습니다.",
+                )
+              ) {
+                input.value = "";
+                return;
+              }
               setIsExtracting(true);
-              setFile(undefined);
-              setSelectedFileName(selected.name);
               setExtractionMessage("파일을 읽고 있어요. 잠시만 기다려 주세요.");
               setError("");
-              const payload = new FormData();
-              payload.set("file", selected);
               try {
-                const result = await extractResumeContent(payload);
+                setExtractionMessage("원본 파일을 업로드하고 있어요…");
+                const prepared = await prepareResumeUpload({
+                  name: selected.name,
+                  size: selected.size,
+                });
+                if (prepared.error || !prepared.id || !prepared.path)
+                  throw new Error(
+                    prepared.error ?? "업로드 준비에 실패했어요.",
+                  );
+                const uploaded = await createClient()
+                  .storage.from(RESUME_BUCKET)
+                  .upload(prepared.path, selected, {
+                    contentType: fileContentType(selected.name),
+                    upsert: false,
+                  });
+                if (uploaded.error)
+                  throw new Error(
+                    "업로드하지 못했어요. 연결 상태와 저장 공간을 확인하고 파일을 다시 선택해 주세요.",
+                  );
+                setExtractionMessage(
+                  "업로드한 파일에서 내용을 추출하고 있어요…",
+                );
+                const result = await extractResumeContent(prepared.id);
                 if (result.error || result.text === undefined) {
                   setExtractionMessage("");
-                  setSelectedFileName("");
                   setError(
                     result.error ?? "파일에서 텍스트를 가져오지 못했어요.",
                   );
@@ -139,17 +182,19 @@ export function ResumeForm({
                   shouldDirty: true,
                   shouldValidate: true,
                 });
-                setFile(selected);
+                setFile(prepared.id);
+                setSelectedFileName(selected.name);
                 setExtractionMessage(
                   result.warning
                     ? "일부 저장할 수 없는 숨은 문자를 바꿨어요. 아래 내용을 확인하고 수정해 주세요."
                     : "추출했어요. 아래 내용은 자유롭게 수정할 수 있습니다.",
                 );
-              } catch {
+              } catch (failure) {
                 setExtractionMessage("");
-                setSelectedFileName("");
                 setError(
-                  "파일을 읽지 못했어요. 파일 형식과 연결 상태를 확인해 주세요.",
+                  failure instanceof Error
+                    ? failure.message
+                    : "파일을 읽지 못했어요. 파일 형식과 연결 상태를 확인해 주세요.",
                 );
                 input.value = "";
               } finally {
@@ -164,9 +209,14 @@ export function ResumeForm({
           </p>
         )}
         <p className="text-xs leading-5 text-muted-foreground">
-          스캔 PDF는 글자를 추출할 수 없습니다. 선택한 파일은 저장할 때 원본으로
-          함께 보관됩니다.
+          스캔 PDF는 글자를 추출할 수 없습니다. 원본은 Supabase 비공개 저장소에
+          업로드되며, 저장을 승인하면 이력서 버전에 연결됩니다. 실패하거나
+          취소한 업로드는 아래에서 정리할 수 있습니다.
         </p>
+        <PendingUploads
+          activeId={file}
+          disabled={isExtracting || isSubmitting}
+        />
       </section>
       <div className="space-y-2">
         <label htmlFor="resume-title" className="text-sm font-medium">
@@ -235,8 +285,8 @@ export function ResumeForm({
           checked={consent}
           onChange={(event) => setConsent(event.target.checked)}
         />
-        이력서 이름·본문·변경 메모·첨부 파일 정보가 Supabase에 저장되는 것에
-        동의합니다. 파일 자체는 로컬(기기)에 저장됩니다.
+        이력서 이름·본문·변경 메모·첨부 파일 정보가 Supabase에 저장되고,
+        업로드한 원본이 이력서 버전에 연결되는 것에 동의합니다.
       </label>
       {error && (
         <p role="alert" className="text-sm text-destructive">

@@ -22,11 +22,7 @@ export function ResumeEditor({ version }: { version?: ResumeVersion }) {
         payload.set("id", version?.resume_id ?? "");
         payload.set("expectedVersion", String(version?.version ?? 0));
         payload.set("approved", "true");
-        if (file) {
-          if (file.size > 10 * 1024 * 1024)
-            return "첨부 파일은 10MB 이하로 선택해 주세요.";
-          payload.set("file", file);
-        }
+        if (file) payload.set("fileId", file);
         const result = await saveResume(payload);
         if (result.error) return result.error;
         router.push(`/resumes/${result.id}`);

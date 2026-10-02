@@ -72,7 +72,7 @@ OPENAI_MODEL=gpt-5-mini
 선택 설정:
 
 - Ollama: `OLLAMA_BASE_URL`, `OLLAMA_MODEL`
-- 이력서 파일 저장 경로: `RESUME_STORAGE_DIR`
+- 이전 로컬 이력서의 읽기·이전 경로만: `RESUME_STORAGE_DIR` (신규 업로드에는 사용하지 않음)
 - 대중교통 예상 시간: `KAKAO_REST_API_KEY`
 
 `OPENAI_API_KEY`와 Supabase `service_role` 키는 `NEXT_PUBLIC_` 변수로 설정하지 마세요.
@@ -90,6 +90,7 @@ supabase/migrations/202609300001_job_posting_delete.sql
 supabase/migrations/202609300002_scoring_preferences.sql
 supabase/migrations/202609300003_scoring_origin_location.sql
 supabase/migrations/202610010001_application_reflections.sql
+supabase/migrations/202610020001_resume_storage.sql
 ```
 
 ### 3. 이메일 로그인
@@ -120,19 +121,41 @@ supabase/migrations/202610010001_application_reflections.sql
 ## 이력서 파일과 저장
 
 - PDF·DOCX·TXT, 파일당 최대 10MB. PDF는 최대 50페이지이며 이미지 스캔본 OCR은 지원하지 않습니다.
-- 텍스트 추출을 위해 파일은 로그인 사용자의 요청으로 앱 서버에 전송됩니다. Supabase나 AI 서비스로 보내지 않습니다.
-- 추출 내용을 확인하고 저장한 뒤 본문은 Supabase에, 원본 파일은 앱 서버의 로컬 디스크에 저장합니다.
+- 전송 동의 후 브라우저에서 Supabase의 비공개 `resume-originals` 버킷으로 직접 업로드합니다. Vercel에는 파일 식별자만 전달하므로 6MB 파일도 요청 본문 제한에 걸리지 않습니다.
+- 앱 서버는 로그인 사용자와 파일 소유권을 확인한 뒤 Storage에서 파일을 읽어 내용을 추출합니다. 이 단계에서는 AI 서비스로 보내지 않습니다.
+- 추출 내용을 확인하고 저장하면 본문·버전 정보와 원본 파일을 연결합니다. 파일은 `<user-id>/<file-id>`로 보관하며 기존 원본을 덮어쓰지 않습니다.
 - TXT는 UTF-8 형식이어야 합니다. 이력서는 직접 작성하거나 추출 내용을 편집할 수 있습니다.
-- 수정·복원은 기존 기록을 덮어쓰지 않고 새 버전을 만듭니다. 동시 수정은 버전 비교로 충돌을 감지합니다.
+- 수정·복원은 새 버전을 만듭니다. 본문만 수정할 때 원본 파일을 중복 업로드하지 않으며, 동시 수정은 버전 비교로 충돌을 감지합니다.
+- 다운로드 시 소유권을 확인하고 60초 유효한 다운로드 링크로 이동합니다. 파일 바이트는 Vercel을 거치지 않습니다.
+- 실패·취소·탭 종료 후 남은 원본은 편집 화면의 **미저장 업로드 정리하기**에서 확인 후 삭제합니다. 자동 삭제는 하지 않습니다. 다른 창에서 작성 중인 파일을 삭제하면 그 파일을 다시 선택해야 합니다.
+- 저장과 삭제는 동일한 파일 행을 잠가 처리하므로 저장된 버전의 원본은 정리 대상으로 삭제할 수 없습니다. 삭제 응답이 유실되어도 다시 시도할 수 있습니다.
 
-기본 파일 경로는 `.data/resumes/<user-id>/<file-id>`입니다. 경로를 바꾸려면 `RESUME_STORAGE_DIR`을 설정합니다.
+### Vercel 배포 준비
 
-### 배포·백업 주의사항
+1. `202610020001_resume_storage.sql`을 기존 마이그레이션 이후 적용합니다. 비공개 버킷, 10MB 제한, 사용자 소유권 정책과 업로드 관리 테이블이 생성됩니다.
+2. Vercel에 기존 Supabase URL·공개 키와 OpenAI 환경변수를 설정합니다. 일반 업로드·추출·다운로드에 서비스 키는 필요하지 않습니다.
+3. 기존 로컬 원본이 있다면 아래 도구로 이전합니다. SQL만 적용해도 파일 바이트가 자동으로 옮겨지지는 않습니다.
+4. 배포 후 실제 6MB PDF의 업로드 → 추출 → 승인 저장 → 원본 다운로드를 확인합니다. Supabase 프로젝트 자체의 전역 업로드 제한도 10MB 이상이어야 합니다.
+5. 원본은 Storage에, 본문·버전 정보는 DB에 있으므로 둘 다 백업합니다.
 
-- 파일 저장에는 영속 디스크가 있는 Node.js 서버가 필요합니다.
-- 여러 앱 서버를 운영한다면 공유 볼륨을 사용해야 합니다.
-- DB와 파일 저장 디렉터리를 함께 백업하세요. DB만 복구하면 첨부 파일을 받을 수 없습니다.
-- 첨부 다운로드 때마다 사용자와 파일 소유권을 확인합니다. 파일은 미리보기 없이 다운로드로 제공됩니다.
+### 기존 로컬 원본 이전
+
+기존 `.data/resumes/<user-id>/<file-id>` 파일과 버전 기록은 삭제하거나 덮어쓰지 않습니다. 이전 완료 전에는 기존 서버에서 로컬 다운로드가 가능하며, Vercel에서는 미이전 원본 안내가 표시됩니다.
+
+로컬 터미널 환경에 `SUPABASE_SERVICE_ROLE_KEY`를 설정하고 다음을 실행합니다. 이 키는 이전 도구 전용이며 브라우저나 Vercel 앱에 등록하지 않습니다. `.env.local`의 Supabase URL이 이전할 DB와 같은지 확인하세요.
+
+```bash
+# 파일 수·크기 사전 확인만 수행 (원격 파일 업로드 없음)
+node --env-file=.env.local scripts/migrate-resume-files.mjs
+
+# 실제 업로드 후 SHA-256으로 원본 일치 검증
+node --env-file=.env.local scripts/migrate-resume-files.mjs --apply
+```
+
+- 경로가 다르면 `RESUME_STORAGE_DIR`에 기존 저장 폴더를 지정합니다.
+- 이미 업로드된 파일은 덮어쓰지 않고 내용 일치 여부를 확인하므로 중단 후 재실행할 수 있습니다.
+- 검증에 성공한 파일만 Storage 연결로 전환합니다. 원본 누락·불일치·실패가 있으면 종료 코드 1과 집계 결과를 반환합니다.
+- 실제 파일명·개인정보·서비스 키는 출력하지 않습니다. 원본이 없는 경우 기존 서버 백업에서 복구한 뒤 재실행하세요.
 
 ## 데이터 처리 주의사항
 
@@ -153,6 +176,7 @@ pnpm build
 DB 검증 SQL은 **테스트용 Supabase DB**에서 실행합니다. 테스트 SQL은 끝에서 트랜잭션을 롤백합니다.
 
 - `supabase/tests/resumes.sql` — 소유권, 버전 보존·복원, 충돌 처리
+- `supabase/tests/resume_storage.sql` — 파일 소유권, 저장 전 업로드, 원본 보호, 취소·삭제 재시도 (Storage 메타데이터 SQL 검증; 실제 바이트 전송은 별도 확인)
 - `supabase/tests/job_postings.sql` — 공고 소유권과 원문 보호
 - `supabase/tests/job_reviews.sql` — 평가 스냅샷, 지원 단계, 복원
 - `supabase/tests/scoring_preferences.sql` — 평가 설정과 RLS 정책

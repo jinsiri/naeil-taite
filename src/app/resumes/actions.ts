@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getIdentity } from "@/lib/supabase/server";
 import { resumeInputSchema, type SaveResult } from "@/lib/resumes/schema";
-import { saveAttachment } from "@/lib/resumes/files";
+import { loadStoredResumeFile } from "@/lib/resumes/storage";
 import {
   extractResumeFile,
   ResumeExtractionError,
@@ -18,14 +18,19 @@ const targetSchema = z.object({
 });
 
 export async function extractResumeContent(
-  formData: FormData,
+  fileId: unknown,
 ): Promise<{ text?: string; warning?: boolean; error?: string }> {
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "추출할 파일을 선택해 주세요." };
+  const parsed = z.uuid().safeParse(fileId);
+  if (!parsed.success) return { error: "추출할 파일을 선택해 주세요." };
   try {
     const identity = await getIdentity();
     if (!identity)
       return { error: "로그인이 만료됐어요. 로그인한 뒤 다시 시도해 주세요." };
+    const { file } = await loadStoredResumeFile(
+      identity.client,
+      identity.user.id,
+      parsed.data,
+    );
     const normalized = normalizePostgresText(await extractResumeFile(file));
     return {
       text: normalized.text,
@@ -60,7 +65,7 @@ export async function saveResume(formData: FormData): Promise<SaveResult> {
         error: "로그인이 만료됐어요. 새 탭에서 로그인한 뒤 다시 저장해 주세요.",
       };
     const { client, user } = identity;
-    // Check ownership before touching disk; the RPC repeats this under a row lock.
+    // The RPC repeats ownership and version checks under a row lock.
     if (target.data.id) {
       const { data, error } = await client
         .from("resumes")
@@ -76,15 +81,22 @@ export async function saveResume(formData: FormData): Promise<SaveResult> {
             "다른 창에서 새 버전이 저장됐어요. 입력 내용을 복사한 뒤 최신 버전을 열어 다시 수정해 주세요.",
         };
     }
-    const uploaded = formData.get("file");
-    let file: Awaited<ReturnType<typeof saveAttachment>> | undefined;
-    if (uploaded instanceof File && uploaded.size > 0) {
+    const fileId = z
+      .uuid()
+      .nullable()
+      .safeParse(formData.get("fileId") || null);
+    if (!fileId.success) return { error: "첨부 파일 정보를 확인해 주세요." };
+    let file: { id: string; name: string; size: number } | undefined;
+    if (fileId.data) {
       try {
-        file = await saveAttachment(user.id, uploaded);
+        const stored = await loadStoredResumeFile(client, user.id, fileId.data);
+        // Do not trust browser metadata or bypass format validation on save.
+        await extractResumeFile(stored.file);
+        file = stored.metadata;
       } catch {
         return {
           error:
-            "첨부 파일을 저장하지 못했어요. PDF·DOCX·TXT 형식, 10MB 이하 크기와 저장 공간을 확인해 주세요.",
+            "첨부 파일을 확인하지 못했어요. 파일을 다시 선택해 주세요. 입력 내용은 유지됩니다.",
         };
       }
     }

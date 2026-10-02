@@ -3,6 +3,10 @@ begin;
 insert into auth.users(id) values ('10000000-0000-4000-8000-000000000001'), ('10000000-0000-4000-8000-000000000002');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+insert into public.resume_files(id, user_id, name, size) values
+('20000000-0000-4000-8000-000000000001', auth.uid(), 'original.pdf', 128);
+insert into storage.objects(bucket_id, name, metadata) values
+('resume-originals', auth.uid()::text || '/20000000-0000-4000-8000-000000000001', '{"size":128}');
 select set_config('test.resume_id', public.save_resume(null, 0, '첫 이력서', 'React 경험. Next.js 미확인.', '최초 등록', '20000000-0000-4000-8000-000000000001', 'original.pdf', 128)::text, true);
 select public.save_resume(current_setting('test.resume_id')::uuid, 1, '수정 이력서', '직접 수정한 내용', '경력 추가');
 select public.save_resume(current_setting('test.resume_id')::uuid, 2, '', '', p_restore_version => 1);

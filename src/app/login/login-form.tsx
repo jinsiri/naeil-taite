@@ -90,7 +90,7 @@ export function LoginForm() {
             ? "로그인하기"
             : "가입하기"}
       </Button>
-      <Button
+      {/*<Button
         type="button"
         variant="ghost"
         className="min-h-11 w-full"
@@ -103,7 +103,7 @@ export function LoginForm() {
         {mode === "login"
           ? "처음이신가요? 이메일로 가입하기"
           : "이미 계정이 있어요. 로그인하기"}
-      </Button>
+      </Button>*/}
     </form>
   );
 }

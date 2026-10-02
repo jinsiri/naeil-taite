@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  resumeInputSchema,
-  formatResumeDate,
-} from "../src/lib/resumes/schema.ts";
+import "./helpers/register-typescript.mjs";
+const { resumeInputSchema, formatResumeDate } =
+  await import("../src/lib/resumes/schema.ts");
 
 test("빈 이력서와 범위를 초과하는 입력을 거부한다", () => {
   for (const input of [
