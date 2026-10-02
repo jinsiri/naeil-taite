@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getIdentity } from "@/lib/supabase/server";
-import { DEFAULT_SCORE_WEIGHTS } from "@/lib/jobs/scoring";
+import {
+  DEFAULT_SCORE_WEIGHTS,
+  scoringPreferencesWeightsSchema,
+} from "@/lib/jobs/scoring";
 
 const schema = z
   .object({
@@ -12,14 +15,7 @@ const schema = z
     commuteIdeal: z.coerce.number().int().min(0).max(240),
     commuteMax: z.coerce.number().int().min(1).max(300),
     transitConsent: z.boolean(),
-    weights: z.object({
-      careerCapital: z.number().min(0).max(100),
-      roleFit: z.number().min(0).max(100),
-      companyQuality: z.number().min(0).max(100),
-      targetAlignment: z.number().min(0).max(100),
-      personalFit: z.number().min(0).max(100),
-      publicTransitFit: z.number().min(0).max(100),
-    }),
+    weights: scoringPreferencesWeightsSchema,
   })
   .refine((value) => value.commuteMax > value.commuteIdeal);
 

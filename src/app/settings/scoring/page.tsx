@@ -2,17 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { requireIdentity } from "@/lib/resumes/data";
-import { DEFAULT_SCORE_WEIGHTS, type ScoreWeights } from "@/lib/jobs/scoring";
+import {
+  DEFAULT_SCORE_WEIGHTS,
+  normalizeScoreWeights,
+  scoreWeightsSchema,
+} from "@/lib/jobs/scoring";
+import { ScoringWeightsFields } from "@/components/settings/scoring-weights-fields";
 import { saveScoringPreferences } from "@/app/settings/actions";
-
-const labels: Record<keyof ScoreWeights, string> = {
-  careerCapital: "커리어 자산",
-  roleFit: "직무 적합도",
-  companyQuality: "회사 조건",
-  targetAlignment: "커리어 목표",
-  personalFit: "개인 선호",
-  publicTransitFit: "대중교통 출퇴근",
-};
 
 export default async function ScoringSettingsPage({
   searchParams,
@@ -24,7 +20,12 @@ export default async function ScoringSettingsPage({
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
-  const weights = { ...DEFAULT_SCORE_WEIGHTS, ...(data?.weights ?? {}) };
+  const weights = normalizeScoreWeights(
+    scoreWeightsSchema.parse({
+      ...DEFAULT_SCORE_WEIGHTS,
+      ...(data?.weights ?? {}),
+    }),
+  );
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {search.saved === "1" && (
@@ -34,36 +35,24 @@ export default async function ScoringSettingsPage({
       )}
       {search.error && (
         <p role="alert" className="text-sm text-destructive">
-          설정을 저장하지 못했어요. 입력값과 데이터베이스 마이그레이션을 확인해
+          설정을 저장하지 못했어요. 비중 합계가 100%인지와 출퇴근 시간을 확인해
           주세요.
         </p>
       )}
       <div>
         <h1 className="text-3xl font-bold">평가 기준 설정</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          점수별 중요도를 직접 조정합니다. 사용 가능한 항목의 가중치 합계로
-          정규화됩니다.
+          전체 100% 중 각 평가 항목에 할애할 비중을 정해 주세요. 점수가 없는
+          항목은 제외하고 나머지 비중에 비례해 계산합니다.
         </p>
       </div>
       <form action={saveScoringPreferences} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>점수 가중치</CardTitle>
+            <CardTitle>평가 항목별 비중</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            {Object.entries(labels).map(([key, label]) => (
-              <label key={key} className="space-y-2 text-sm font-medium">
-                {label}
-                <Input
-                  name={`weight_${key}`}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  defaultValue={weights[key as keyof typeof weights]}
-                />
-              </label>
-            ))}
+          <CardContent>
+            <ScoringWeightsFields weights={weights} />
           </CardContent>
         </Card>
         <Card>

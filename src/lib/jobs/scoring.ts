@@ -53,13 +53,51 @@ export const scoreWeightsSchema = z.object({
 });
 
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
-  careerCapital: 25,
-  roleFit: 25,
-  companyQuality: 20,
-  targetAlignment: 20,
-  personalFit: 10,
-  publicTransitFit: 10,
+  careerCapital: 23,
+  roleFit: 23,
+  companyQuality: 18,
+  targetAlignment: 18,
+  personalFit: 9,
+  publicTransitFit: 9,
 };
+
+export const scoringPreferencesWeightsSchema = scoreWeightsSchema
+  .refine((weights) => Object.values(weights).every(Number.isInteger), {
+    message: "비중은 정수로 입력해 주세요.",
+  })
+  .refine(
+    (weights) =>
+      Object.values(weights).reduce((sum, value) => sum + value, 0) === 100,
+    {
+      message: "비중 합계를 100%로 맞춰 주세요.",
+    },
+  );
+
+export function normalizeScoreWeights(weights: ScoreWeights): ScoreWeights {
+  const keys = Object.keys(weights) as (keyof ScoreWeights)[];
+  const total = keys.reduce((sum, key) => sum + weights[key], 0);
+  if (total === 0) return { ...DEFAULT_SCORE_WEIGHTS };
+  const shares = keys.map((key) => {
+    const share = (weights[key] / total) * 100;
+    return {
+      key,
+      value: Math.floor(share),
+      remainder: share - Math.floor(share),
+    };
+  });
+  const remaining = 100 - shares.reduce((sum, share) => sum + share.value, 0);
+  [...shares]
+    .sort((a, b) => b.remainder - a.remainder)
+    .slice(0, remaining)
+    .forEach((share) => {
+      share.value += 1;
+    });
+  const result = { ...weights };
+  shares.forEach(({ key, value }) => {
+    result[key] = value;
+  });
+  return result;
+}
 
 export const LEGACY_SCORE_WEIGHTS: ScoreWeights = {
   careerCapital: 25,
