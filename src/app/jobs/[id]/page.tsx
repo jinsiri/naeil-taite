@@ -1,3 +1,5 @@
+import { SubmissionPanel } from "@/components/applications/submission-panel";
+import { submittedResumeSchema } from "@/lib/applications/submission-schema";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -152,6 +154,22 @@ export default async function JobDetailPage({
     .array(applicationReflectionSchema)
     .parse(reflectionData);
 
+  const { data: submissionData, error: submissionError } = await client
+    .from("submitted_resumes")
+    .select("*")
+    .eq("application_id", application.id)
+    .eq("user_id", user.id)
+    .order("approved_at", { ascending: false });
+  if (submissionError && isJobPostingsTableMissing(submissionError.code))
+    return (
+      <JobMigrationNotice
+        migrationFile="202610060002_submitted_resumes.sql"
+        feature="실제 제출본"
+      />
+    );
+  if (submissionError) throw new Error("제출본을 불러오지 못했어요.");
+  const submissions = z.array(submittedResumeSchema).parse(submissionData);
+
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <div>
@@ -201,6 +219,18 @@ export default async function JobDetailPage({
           </div>
         </div>
       </div>
+
+      <SubmissionPanel
+        applicationId={application.id}
+        submissions={submissions}
+        versions={resumes.flatMap((resume) =>
+          resume.resume_versions.map((version) => ({
+            resumeId: resume.id,
+            version: version.version,
+            title: version.title,
+          })),
+        )}
+      />
 
       <ApplicationReflectionPanel
         jobId={job.id}

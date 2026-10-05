@@ -93,6 +93,7 @@ supabase/migrations/202610010001_application_reflections.sql
 supabase/migrations/202610020001_resume_storage.sql
 supabase/migrations/202610020001_scoring_weights_default.sql
 supabase/migrations/202610060001_independent_applications.sql
+supabase/migrations/202610060002_submitted_resumes.sql
 ```
 
 ### 3. 이메일 로그인
@@ -191,3 +192,9 @@ AI 이력서 대조는 의미를 이해하는 판정이 아닙니다. 근거 확
 - 기존 평가의 단계는 ‘확인 필요’로 옮깁니다. 공고 상세 또는 지원 현황에서 실제 단계를 확인하세요. 기존 평가 이력은 보존됩니다.
 - 재분석·평가 복원은 지원 단계를 바꾸지 않습니다. 단계 변경은 별도 이벤트로 쌓이며 다른 창의 오래된 변경은 거절됩니다.
 - `supabase/tests/applications.sql`에서 소유권, 승인, 버전 충돌, 재분석과의 독립성을 검증합니다.
+
+## 실제 제출본
+
+공고 상세에서 실제 제출 파일을 새로 업로드하거나, 온라인 지원서에 사용한 이력서 본문 버전을 선택해 제출일과 함께 확정합니다. 본문을 선택하면 첨부 원본은 복사하지 않습니다. 확정 기록은 수정하지 않으며 정정·재제출은 메모와 함께 새 기록으로 추가합니다. 제출본 확정은 지원 단계를 자동 변경하지 않습니다. 업로드 후 확정하지 않은 파일은 미저장 업로드 목록에서 정리할 수 있습니다. 확정된 파일은 정리할 수 없습니다. 공고를 삭제하면 제출본 기록도 삭제되며 Storage 원본은 남습니다.
+
+`supabase/tests/submitted_resumes.sql`은 승인, 소유권, 불변 본문, 파일 보호, 재시도 중복 방지를 검증합니다.

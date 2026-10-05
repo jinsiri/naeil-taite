@@ -20,7 +20,7 @@ export function DeleteJobButton({
   function removeJob() {
     if (
       !window.confirm(
-        `“${jobTitle}” 공고를 삭제할까요? 연결된 AI 평가와 지원 이력도 함께 삭제되며 되돌릴 수 없습니다.`,
+        `“${jobTitle}” 공고를 삭제할까요? 연결된 AI 평가, 지원 이력과 제출본 기록도 함께 삭제되며 되돌릴 수 없습니다.`,
       )
     )
       return;
