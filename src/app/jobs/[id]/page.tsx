@@ -1,3 +1,5 @@
+import { NextActionPanel } from "@/components/applications/next-action-panel";
+import { nextActionSchema } from "@/lib/applications/next-action-schema";
 import { SubmissionPanel } from "@/components/applications/submission-panel";
 import { submittedResumeSchema } from "@/lib/applications/submission-schema";
 import Link from "next/link";
@@ -170,6 +172,26 @@ export default async function JobDetailPage({
   if (submissionError) throw new Error("제출본을 불러오지 못했어요.");
   const submissions = z.array(submittedResumeSchema).parse(submissionData);
 
+  const { data: nextActionData, error: nextActionError } = await client
+    .from("next_actions")
+    .select("*")
+    .eq("application_id", application.id)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (nextActionError && isJobPostingsTableMissing(nextActionError.code))
+    return (
+      <JobMigrationNotice
+        migrationFile="202610060003_next_actions.sql"
+        feature="다음 행동"
+      />
+    );
+  if (nextActionError) throw new Error("다음 행동을 불러오지 못했어요.");
+  const nextActions = z.array(nextActionSchema).parse(nextActionData);
+  const sourceReflection = reflections.find(
+    (reflection) =>
+      reflection.id === search.actionFrom && reflection.next_time_note.trim(),
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <div>
@@ -219,6 +241,16 @@ export default async function JobDetailPage({
           </div>
         </div>
       </div>
+
+      <NextActionPanel
+        applicationId={application.id}
+        actions={nextActions}
+        seed={
+          sourceReflection
+            ? { id: sourceReflection.id, text: sourceReflection.next_time_note }
+            : undefined
+        }
+      />
 
       <SubmissionPanel
         applicationId={application.id}

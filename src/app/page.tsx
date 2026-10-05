@@ -1,3 +1,4 @@
+import { NextActionsSummary } from "@/components/applications/next-actions-summary";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -208,6 +209,8 @@ export default async function Home() {
           icon={CalendarClock}
         />
       </section>
+
+      <NextActionsSummary client={client} userId={user.id} />
 
       <div className="grid items-stretch gap-5 lg:grid-cols-[1.4fr_1fr]">
         <Card className="h-full">

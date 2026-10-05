@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -212,6 +214,12 @@ export function ApplicationReflectionPanel({
                           <p className="mt-1 leading-6 whitespace-pre-wrap">
                             {entry.nextTimeNote}
                           </p>
+                          <Link
+                            href={`/jobs/${jobId}?actionFrom=${entry.id.replace("reflection-", "")}#next-actions`}
+                            className="mt-2 inline-block text-xs text-primary underline"
+                          >
+                            다음 행동으로 가져오기
+                          </Link>
                         </div>
                       )}
                     </div>
