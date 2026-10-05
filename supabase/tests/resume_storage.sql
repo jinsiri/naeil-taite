@@ -7,9 +7,11 @@ insert into public.resume_files(id, user_id, name, size) values
  ('20000000-0000-4000-8000-000000000001', auth.uid(), 'resume.pdf', 6291456),
  ('20000000-0000-4000-8000-000000000002', auth.uid(), 'cancel.txt', 10),
  ('20000000-0000-4000-8000-000000000003', auth.uid(), 'missing.pdf', 100);
-insert into storage.objects(bucket_id, name, metadata) values
- ('resume-originals', auth.uid()::text || '/20000000-0000-4000-8000-000000000001', '{"size":6291456}'),
- ('resume-originals', auth.uid()::text || '/20000000-0000-4000-8000-000000000002', '{"size":10}');
+-- Storage also has an owner_id column; save_resume must use its authenticated
+-- owner variable for the object path, without an ambiguous column reference.
+insert into storage.objects(bucket_id, name, metadata, owner_id) values
+ ('resume-originals', auth.uid()::text || '/20000000-0000-4000-8000-000000000001', '{"size":6291456}', auth.uid()::text),
+ ('resume-originals', auth.uid()::text || '/20000000-0000-4000-8000-000000000002', '{"size":10}', auth.uid()::text);
 select set_config('test.resume_id', public.save_resume(null, 0, '이력서', '본문',
  p_file_id => '20000000-0000-4000-8000-000000000001', p_file_name => 'spoof.txt', p_file_size => 1)::text, true);
 do $$

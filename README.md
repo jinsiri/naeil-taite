@@ -95,6 +95,7 @@ supabase/migrations/202610020001_scoring_weights_default.sql
 supabase/migrations/202610060001_independent_applications.sql
 supabase/migrations/202610060002_submitted_resumes.sql
 supabase/migrations/202610060003_next_actions.sql
+supabase/migrations/202610060004_resume_storage_owner.sql
 ```
 
 ### 3. 이메일 로그인
@@ -206,3 +207,5 @@ AI 이력서 대조는 의미를 이해하는 판정이 아닙니다. 근거 확
 - 회고의 ‘다음에 해볼 일’에서 **다음 행동으로 가져오기**를 누르면 초안이 채워집니다. 사용자가 저장하기 전에는 행동이 만들어지지 않습니다.
 - 대시보드는 미완료 행동 중 기한이 빠른 6개를 보여줍니다. 기한이 지난 항목과 오늘까지인 항목을 구별합니다. 자동 알림·외부 캘린더 전송은 포함하지 않습니다.
 - `supabase/tests/next_actions.sql`은 사용자 소유권, 회고 출처 연결, 완료·재개, 충돌 및 생성 재시도를 검증합니다.
+
+`202610060004_resume_storage_owner.sql`은 원본 연결 검사 시 `storage.objects.owner_id` 컬럼과 기존 함수 변수명이 충돌하는 문제를 수정합니다. 기존 마이그레이션을 고치지 않고 새 마이그레이션으로 적용하며, `supabase/tests/resume_storage.sql`로 회귀 검증합니다.
