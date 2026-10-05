@@ -18,7 +18,6 @@ import {
   calculatePriorityScore,
   classifyOpportunity,
   DEFAULT_SCORE_WEIGHTS,
-  PIPELINE_STAGES,
   scoreWeightsSchema,
 } from "@/lib/jobs/scoring";
 import { commuteFitScore, getPublicTransitMinutes } from "@/lib/jobs/transit";
@@ -578,59 +577,6 @@ export async function analyzeJobWithAI(formData: FormData) {
     analysis,
     consentAt,
   );
-}
-
-export async function updatePipelineStage(formData: FormData) {
-  const identity = await getIdentity();
-  if (!identity) return { error: "로그인이 만료됐어요. 다시 로그인해 주세요." };
-  const parsed = z
-    .object({
-      jobId: z.uuid(),
-      resumeId: z.uuid(),
-      resumeVersion: z.coerce.number().int().positive(),
-      pipelineStage: z.enum(PIPELINE_STAGES),
-    })
-    .safeParse({
-      jobId: formData.get("jobId"),
-      resumeId: formData.get("resumeId"),
-      resumeVersion: formData.get("resumeVersion"),
-      pipelineStage: formData.get("pipelineStage"),
-    });
-  if (!parsed.success) return { error: "지원 단계 입력을 확인해 주세요." };
-
-  const { client, user } = identity;
-  const { data, error } = await client
-    .from("job_reviews")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("job_posting_id", parsed.data.jobId)
-    .eq("resume_id", parsed.data.resumeId)
-    .eq("resume_version", parsed.data.resumeVersion)
-    .order("snapshot_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return { error: "지원 기록을 찾지 못했어요." };
-  const latest = reviewSnapshotSchema.parse(data);
-  if (latest.pipeline_stage === parsed.data.pipelineStage)
-    return { error: "이미 선택한 지원 단계예요." };
-  if (
-    parsed.data.pipelineStage === "지원완료" &&
-    formData.get("confirmedApply") !== "true"
-  )
-    return { error: "실제 지원 완료인지 확인해 주세요." };
-
-  const result = await persistReview({
-    jobId: latest.job_posting_id,
-    resumeId: latest.resume_id,
-    resumeVersion: latest.resume_version,
-    scores: latest.scores,
-    passEstimate: latest.pass_estimate,
-    careerPath: latest.career_path,
-    applicationEffort: latest.application_effort,
-    pipelineStage: parsed.data.pipelineStage,
-    reason: `지원 단계 변경: ${latest.pipeline_stage} → ${parsed.data.pipelineStage}`,
-  });
-  return result.error ? { error: result.error } : { success: true };
 }
 
 export async function rollbackJobReview(id: string) {

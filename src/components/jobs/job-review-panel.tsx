@@ -97,7 +97,7 @@ export function JobReviewPanel({
   function restore(snapshot: ReviewSnapshot) {
     if (
       !window.confirm(
-        `평가 #${snapshot.snapshot_number}로 되돌릴까요? 기존 기록은 유지되고 새 이력이 추가됩니다.`,
+        `평가 #${snapshot.snapshot_number}로 되돌릴까요? 기존 기록은 유지되고 새 이력이 추가됩니다. 실제 지원 단계는 바뀌지 않습니다.`,
       )
     )
       return;
@@ -544,7 +544,7 @@ function AnalysisResult({
                   {item.opportunity_score}
                 </strong>
                 <p className="text-muted-foreground">
-                  {item.pipeline_stage} · {item.change_reason} ·{" "}
+                  {item.change_reason} ·{" "}
                   {new Date(item.created_at).toLocaleString("ko-KR")}
                 </p>
               </div>

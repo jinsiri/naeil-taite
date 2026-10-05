@@ -1,97 +1,106 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { updatePipelineStage } from "@/app/jobs/review-actions";
-import { PIPELINE_STAGES, type PipelineStage } from "@/lib/jobs/scoring";
+import { updateApplicationStage } from "@/app/applications/actions";
+import { PIPELINE_STAGES } from "@/lib/jobs/scoring";
+import {
+  stageInputSchema,
+  type Application,
+  type StageInput,
+} from "@/lib/applications/schema";
 
 export function PipelineStageControl({
-  jobId,
-  resumeId,
-  resumeVersion,
-  currentStage,
+  application,
   compact = false,
 }: {
-  jobId: string;
-  resumeId: string;
-  resumeVersion: number;
-  currentStage: PipelineStage;
+  application: Application;
   compact?: boolean;
 }) {
-  const [stage, setStage] = useState<PipelineStage>(currentStage);
+  const router = useRouter();
   const [message, setMessage] = useState("");
-  const [pending, startTransition] = useTransition();
-
-  function submit(formData: FormData) {
-    if (stage === currentStage) {
-      setMessage("현재 단계와 같습니다.");
-      return;
-    }
-    if (
-      stage === "지원완료" &&
-      !window.confirm("이 공고에 실제로 지원을 완료했나요?")
-    )
-      return;
-    if (stage === "지원완료") formData.set("confirmedApply", "true");
-    setMessage("");
-    startTransition(async () => {
-      try {
-        const result = await updatePipelineStage(formData);
-        if (result.error) {
-          setMessage(result.error);
-          return;
-        }
-        window.location.reload();
-      } catch {
-        setMessage("단계를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
-      }
-    });
-  }
-
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { isSubmitting },
+  } = useForm<StageInput>({
+    resolver: zodResolver(stageInputSchema),
+    values: {
+      jobId: application.job_posting_id,
+      expectedRevision: application.revision,
+      pipelineStage:
+        application.pipeline_stage ?? application.legacy_stage ?? "검토중",
+      confirmedApply: false,
+    },
+  });
   return (
     <form
-      action={submit}
-      className={
-        compact
-          ? "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2"
-          : "space-y-2 border-t pt-4"
-      }
+      className="space-y-3"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const stage = new FormData(event.currentTarget).get("pipelineStage");
+        const confirmed =
+          stage === "지원완료"
+            ? window.confirm("이 공고에 실제로 지원을 완료했나요?")
+            : false;
+        if (stage === "지원완료" && !confirmed) return;
+        setValue("confirmedApply", confirmed);
+        await handleSubmit(
+          async (values) => {
+            setMessage("");
+            try {
+              const result = await updateApplicationStage(values);
+              setMessage(result.error ?? "지원 단계를 저장했어요.");
+              if (!result.error) router.refresh();
+            } catch {
+              setMessage(
+                "저장 완료를 확인하지 못했어요. 새로고침해 기록을 확인해 주세요.",
+              );
+            }
+          },
+          () => setMessage("지원 단계를 확인해 주세요."),
+        )(event);
+      }}
     >
-      <input type="hidden" name="jobId" value={jobId} />
-      <input type="hidden" name="resumeId" value={resumeId} />
-      <input type="hidden" name="resumeVersion" value={resumeVersion} />
-      <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
+      {application.pipeline_stage === null && (
+        <p className="text-xs leading-5 text-amber-700">
+          기존 평가에 기록된 단계는 ‘{application.legacy_stage}’입니다. 현재
+          실제 단계를 선택해 확인해 주세요.
+        </p>
+      )}
+      <label className="block space-y-2 text-sm font-medium">
         지원 단계
         <select
-          name="pipelineStage"
-          value={stage}
-          onChange={(event) => setStage(event.target.value as PipelineStage)}
-          disabled={pending}
-          className={`${compact ? "h-9" : "min-h-10"} w-full rounded-lg border bg-background px-3 text-sm text-foreground`}
+          {...register("pipelineStage")}
+          disabled={isSubmitting}
+          className="min-h-10 w-full rounded-lg border bg-background px-3"
         >
-          {PIPELINE_STAGES.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
+          {PIPELINE_STAGES.map((stage) => (
+            <option key={stage}>{stage}</option>
           ))}
         </select>
       </label>
-      {message && (
-        <p
-          role="status"
-          className={`text-xs text-muted-foreground ${compact ? "col-span-2" : ""}`}
-        >
-          {message}
-        </p>
-      )}
       <Button
         type="submit"
         variant="outline"
-        size={compact ? "lg" : "sm"}
-        disabled={pending}
+        size={compact ? "sm" : "default"}
+        disabled={isSubmitting}
       >
-        {pending ? "저장 중…" : compact ? "저장" : "단계 변경"}
+        {isSubmitting
+          ? "저장 중…"
+          : application.pipeline_stage === null
+            ? "현재 단계 확인"
+            : "단계 저장"}
       </Button>
+      {message && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {message}
+        </p>
+      )}
     </form>
   );
 }

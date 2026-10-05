@@ -7,20 +7,12 @@ import {
   ClipboardCheck,
   PanelsTopLeft,
 } from "lucide-react";
-import { z } from "zod";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { requireIdentity } from "@/lib/resumes/data";
-import { reviewSnapshotSchema } from "@/lib/jobs/review-schema";
-
-const jobSchema = z.object({
-  id: z.uuid(),
-  title: z.string(),
-  company: z.string(),
-  deadline: z.iso.date().nullable(),
-  created_at: z.iso.datetime({ offset: true }),
-});
+import { loadApplicationOverview } from "@/lib/applications/data";
+import { JobMigrationNotice } from "@/components/jobs/job-migration-notice";
 
 const inPreparation = ["검토중", "지원준비"];
 const inProgress = ["지원완료", "서류통과", "1차면접", "2차면접", "처우협의"];
@@ -94,61 +86,32 @@ export default async function Home() {
     );
 
   const { client, user } = await requireIdentity();
-  const [jobsResult, reviewsResult] = await Promise.all([
-    client
-      .from("job_postings")
-      .select("id,title,company,deadline,created_at", { count: "exact" })
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    client
-      .from("job_reviews")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(500),
-  ]);
-
-  if (
-    jobsResult.error &&
-    (jobsResult.error.code === "42P01" || jobsResult.error.code === "PGRST205")
-  )
+  const { rows: applications, error } = await loadApplicationOverview(
+    client,
+    user.id,
+  );
+  if (error && ["42P01", "PGRST205"].includes(error.code))
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">대시보드</h1>
-        <Card>
-          <CardContent className="space-y-3 py-8">
-            <h2 className="text-xl font-semibold">
-              공고 데이터를 준비하고 있어요
-            </h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Supabase에 202609280001_job_postings.sql 마이그레이션을 적용하면
-              대시보드 통계를 확인할 수 있습니다.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <JobMigrationNotice
+        migrationFile="202610060001_independent_applications.sql"
+        feature="지원 현황"
+      />
     );
-  if (jobsResult.error)
-    throw new Error("대시보드 공고 정보를 불러오지 못했어요.");
-
-  const jobs = z.array(jobSchema).parse(jobsResult.data ?? []);
-  const reviewTableReady = !reviewsResult.error;
-  if (
-    reviewsResult.error &&
-    reviewsResult.error.code !== "42P01" &&
-    reviewsResult.error.code !== "PGRST205"
-  )
-    throw new Error("대시보드 지원 정보를 불러오지 못했어요.");
-
-  const snapshots = reviewTableReady
-    ? z.array(reviewSnapshotSchema).parse(reviewsResult.data ?? [])
-    : [];
-  const latestByJob = new Map<string, (typeof snapshots)[number]>();
-  for (const review of snapshots)
-    if (!latestByJob.has(review.job_posting_id))
-      latestByJob.set(review.job_posting_id, review);
-
+  if (error) throw new Error("지원 현황을 불러오지 못했어요.");
+  const jobs = applications.map((a) => ({
+    id: a.job_posting_id,
+    title: a.title,
+    company: a.company,
+    deadline: a.deadline,
+  }));
+  const applicationByJob = new Map(
+    applications.map((a) => [a.job_posting_id, a]),
+  );
+  const latestByJob = new Map(
+    applications.flatMap((a) =>
+      a.latest_review ? [[a.job_posting_id, a.latest_review] as const] : [],
+    ),
+  );
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   const latestReviews = [...latestByJob.values()].filter((review) =>
     jobById.has(review.job_posting_id),
@@ -157,16 +120,21 @@ export default async function Home() {
   const upcoming = jobs
     .filter((job) => {
       if (!job.deadline) return false;
-      const review = latestByJob.get(job.id);
+      const application = applicationByJob.get(job.id);
       return (
-        !completed.includes(review?.pipeline_stage ?? "") &&
+        !completed.includes(application?.pipeline_stage ?? "") &&
         daysUntil(job.deadline, today) >= 0 &&
         daysUntil(job.deadline, today) <= 7
       );
     })
     .sort((a, b) => (a.deadline ?? "").localeCompare(b.deadline ?? ""));
   const prioritizedReviews = latestReviews
-    .filter((review) => !completed.includes(review.pipeline_stage))
+    .filter(
+      (review) =>
+        !completed.includes(
+          applicationByJob.get(review.job_posting_id)?.pipeline_stage ?? "",
+        ),
+    )
     .sort((a, b) => b.priority_score - a.priority_score);
   const priorityRankByJob = new Map<string, number>();
   let priorityRank = 0;
@@ -190,14 +158,14 @@ export default async function Home() {
           latestReviews.length,
       )
     : null;
-  const activeCount = latestReviews.filter((review) =>
-    inProgress.includes(review.pipeline_stage),
+  const activeCount = applications.filter((application) =>
+    inProgress.includes(application.pipeline_stage ?? ""),
   ).length;
-  const preparedCount = latestReviews.filter((review) =>
-    inPreparation.includes(review.pipeline_stage),
+  const preparedCount = applications.filter((application) =>
+    inPreparation.includes(application.pipeline_stage ?? ""),
   ).length;
-  const completedCount = latestReviews.filter((review) =>
-    completed.includes(review.pipeline_stage),
+  const completedCount = applications.filter((application) =>
+    completed.includes(application.pipeline_stage ?? ""),
   ).length;
   const focusTitle = upcoming.length ? "마감 임박 공고" : "우선순위 공고";
 
@@ -217,13 +185,13 @@ export default async function Home() {
       >
         <StatCard
           label="저장한 공고"
-          value={jobsResult.count ?? jobs.length}
+          value={jobs.length}
           description="마감일과 지원 기록을 관리 중인 공고"
           icon={BriefcaseBusiness}
         />
         <StatCard
           label="평가한 공고"
-          value={`${latestReviews.length} / ${jobsResult.count ?? jobs.length}`}
+          value={`${latestReviews.length} / ${jobs.length}`}
           description="이력서와 비교해 평가 기록이 있는 공고"
           icon={ClipboardCheck}
         />
@@ -308,7 +276,8 @@ export default async function Home() {
                             </Link>
                           </td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {review?.pipeline_stage ?? "아직 평가 전"}
+                            {applicationByJob.get(job.id)?.pipeline_stage ??
+                              "확인 필요"}
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-medium whitespace-nowrap tabular-nums">
                             {rank !== undefined ? `${rank}위` : "평가 전"}
@@ -367,11 +336,16 @@ export default async function Home() {
           <CardHeader>
             <CardTitle>지원 흐름</CardTitle>
             <p className="text-sm text-muted-foreground">
-              최신 평가 기록 기준으로 집계했어요.
+              직접 확인한 지원 단계로 집계했어요.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             {[
+              {
+                label: "확인 필요",
+                count: applications.filter((a) => a.pipeline_stage === null)
+                  .length,
+              },
               { label: "검토·준비", count: preparedCount },
               { label: "지원·전형 진행", count: activeCount },
               { label: "전형 결과", count: completedCount },
@@ -402,12 +376,6 @@ export default async function Home() {
                   : `${latestReviews.length}개 공고의 최신 평가 평균`}
               </p>
             </div>
-            {!reviewTableReady && (
-              <p className="rounded-lg bg-secondary p-3 text-xs leading-5 text-muted-foreground">
-                지원·평가 통계는 202609280002_job_reviews.sql 마이그레이션을
-                적용하면 표시됩니다.
-              </p>
-            )}
             <Link
               href="/applications"
               className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-primary hover:underline"

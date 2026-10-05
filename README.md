@@ -91,6 +91,8 @@ supabase/migrations/202609300002_scoring_preferences.sql
 supabase/migrations/202609300003_scoring_origin_location.sql
 supabase/migrations/202610010001_application_reflections.sql
 supabase/migrations/202610020001_resume_storage.sql
+supabase/migrations/202610020001_scoring_weights_default.sql
+supabase/migrations/202610060001_independent_applications.sql
 ```
 
 ### 3. 이메일 로그인
@@ -182,3 +184,10 @@ DB 검증 SQL은 **테스트용 Supabase DB**에서 실행합니다. 테스트 S
 - `supabase/tests/scoring_preferences.sql` — 평가 설정과 RLS 정책
 
 AI 이력서 대조는 의미를 이해하는 판정이 아닙니다. 근거 확인을 위한 보조 정보로 사용하세요.
+
+## 독립 지원 기록
+
+- 공고 저장 시 지원 기록이 함께 생성됩니다. AI 분석 없이 단계를 관리할 수 있습니다.
+- 기존 평가의 단계는 ‘확인 필요’로 옮깁니다. 공고 상세 또는 지원 현황에서 실제 단계를 확인하세요. 기존 평가 이력은 보존됩니다.
+- 재분석·평가 복원은 지원 단계를 바꾸지 않습니다. 단계 변경은 별도 이벤트로 쌓이며 다른 창의 오래된 변경은 거절됩니다.
+- `supabase/tests/applications.sql`에서 소유권, 승인, 버전 충돌, 재분석과의 독립성을 검증합니다.

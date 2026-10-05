@@ -16,6 +16,10 @@ import { Button } from "@/components/ui/button";
 import { PipelineStageControl } from "@/components/jobs/pipeline-stage-control";
 import { ApplicationReflectionPanel } from "@/components/jobs/application-reflection-panel";
 import { applicationReflectionSchema } from "@/lib/jobs/reflection-schema";
+import {
+  applicationSchema,
+  applicationEventSchema,
+} from "@/lib/applications/schema";
 import { PIPELINE_STAGES } from "@/lib/jobs/scoring";
 
 const resumeChoicesSchema = z.array(
@@ -50,6 +54,29 @@ export default async function JobDetailPage({
   if (jobError) throw new Error("채용공고를 불러오지 못했어요.");
   if (!jobData) notFound();
   const job = jobPostingSchema.parse(jobData);
+  const { data: applicationData, error: applicationError } = await client
+    .from("applications")
+    .select("*")
+    .eq("job_posting_id", job.id)
+    .eq("user_id", user.id)
+    .single();
+  if (applicationError && isJobPostingsTableMissing(applicationError.code))
+    return (
+      <JobMigrationNotice
+        migrationFile="202610060001_independent_applications.sql"
+        feature="독립 지원 기록"
+      />
+    );
+  if (applicationError) throw new Error("지원 기록을 불러오지 못했어요.");
+  const application = applicationSchema.parse(applicationData);
+  const { data: eventData, error: eventError } = await client
+    .from("application_events")
+    .select("*")
+    .eq("application_id", application.id)
+    .eq("user_id", user.id)
+    .order("revision", { ascending: false });
+  if (eventError) throw new Error("지원 변경 이력을 불러오지 못했어요.");
+  const events = z.array(applicationEventSchema).parse(eventData);
   const { data: scoringPreferences } = await client
     .from("scoring_preferences")
     .select("home_location,transit_consent")
@@ -165,26 +192,20 @@ export default async function JobDetailPage({
               <DeleteJobButton jobId={job.id} jobTitle={job.title} />
             </div>
           </div>
-          {jobReviewHistory[0] && (
-            <div className="w-full rounded-lg border border-primary/30 bg-primary/5 p-3 sm:w-64 sm:shrink-0">
-              <PipelineStageControl
-                jobId={job.id}
-                resumeId={jobReviewHistory[0].resume_id}
-                resumeVersion={jobReviewHistory[0].resume_version}
-                currentStage={jobReviewHistory[0].pipeline_stage}
-                compact
-              />
-            </div>
-          )}
+          <div className="w-full rounded-lg border border-primary/30 bg-primary/5 p-3 sm:w-64 sm:shrink-0">
+            <PipelineStageControl
+              key={application.revision}
+              application={application}
+              compact
+            />
+          </div>
         </div>
       </div>
 
       <ApplicationReflectionPanel
         jobId={job.id}
-        currentStage={jobReviewHistory[0]?.pipeline_stage ?? PIPELINE_STAGES[0]}
-        stageChanges={jobReviewHistory.filter((review) =>
-          review.change_reason.startsWith("지원 단계 변경:"),
-        )}
+        currentStage={application.pipeline_stage ?? PIPELINE_STAGES[0]}
+        stageChanges={events}
         reflections={reflections}
       />
 

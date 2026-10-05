@@ -11,7 +11,7 @@ import { PIPELINE_STAGES, type PipelineStage } from "@/lib/jobs/scoring";
 
 type StageChange = {
   id: string;
-  pipeline_stage: PipelineStage;
+  pipeline_stage: PipelineStage | null;
   change_reason: string;
   created_at: string;
 };
