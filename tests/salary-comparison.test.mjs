@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 const {
   latestByCareer,
-  previousYearRecord,
+  previousSalaryRecord,
   salaryDifference,
   sortSalaryRecords,
 } = await import("../src/lib/salaries/comparison.ts");
@@ -23,25 +23,35 @@ function record(date, career, amount, suffix = "1") {
     created_at: "2026-10-06T00:00:00Z",
   };
 }
-test("전년도 마지막 적용 연봉을 기준으로 삼고 같은 해 인상은 기준에서 제외한다", () => {
+test("등록 순서와 관계없이 같은 해의 직전 적용 연봉을 비교한다", () => {
   const early = record("2024-01-01", 2, 4000);
   const late = record("2024-10-01", 2, 4500, "2");
   const current = record("2025-07-01", 3, 4950, "3");
   const sameYear = record("2025-01-01", 3, 4700, "4");
   assert.equal(
-    previousYearRecord(current, [current, early, sameYear, late])?.id,
-    late.id,
+    previousSalaryRecord(current, [current, early, sameYear, late])?.id,
+    sameYear.id,
   );
-  assert.deepEqual(salaryDifference(current.amount, late.amount), {
-    amount: 450,
-    percent: 10,
+  assert.equal(
+    previousSalaryRecord(late, [current, early, sameYear, late])?.id,
+    early.id,
+  );
+});
+test("2년 간격의 이직도 직전 연봉과 비교한다", () => {
+  const previous = record("2024-01-01", 2, 4000);
+  const current = record("2026-01-01", 4, 5000, "2");
+  const reference = previousSalaryRecord(current, [previous, current]);
+  assert.equal(reference?.id, previous.id);
+  assert.deepEqual(salaryDifference(current.amount, reference.amount), {
+    amount: 1000,
+    percent: 25,
   });
 });
-test("전년도 기록이 비어 있으면 그 이전 기록으로 상승률을 만들지 않는다", () => {
+test("첫 기록은 자신이나 미래 기록과 비교하지 않는다", () => {
+  const first = record("2024-01-01", 1, 4000);
+  assert.equal(previousSalaryRecord(first, [first]), null);
   assert.equal(
-    previousYearRecord(record("2026-01-01", 4, 5000), [
-      record("2024-01-01", 2, 4000),
-    ]),
+    previousSalaryRecord(first, [record("2026-01-01", 3, 5000, "2"), first]),
     null,
   );
 });
@@ -74,9 +84,13 @@ test("적용일이 같으면 등록 시각, ID 순으로 비교 기준을 일관
     created_at: "2026-10-06T01:00:00Z",
   };
   assert.equal(
-    previousYearRecord(record("2025-01-01", 3, 5000), [a, b])?.amount,
+    previousSalaryRecord(record("2025-01-01", 3, 5000, "3"), [a, b])?.amount,
     4500,
   );
+  assert.equal(previousSalaryRecord(b, [b, a])?.id, a.id);
+  assert.equal(previousSalaryRecord(a, [b, a]), null);
+  const c = { ...b, id: id.slice(0, -1) + "3" };
+  assert.equal(previousSalaryRecord(c, [c, b, a])?.id, b.id);
 });
 test("유효한 연차·금액·날짜와 명시적인 삭제 확인을 요구한다", () => {
   const input = {

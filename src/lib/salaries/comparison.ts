@@ -14,16 +14,16 @@ export function latestByCareer(records: SalaryRecord[]) {
     if (!latest.has(record.career_year)) latest.set(record.career_year, record);
   return [...latest.values()].sort((a, b) => a.career_year - b.career_year);
 }
-export function previousYearRecord(
+export function previousSalaryRecord(
   record: SalaryRecord,
   records: SalaryRecord[],
 ) {
-  const previousYear = Number(record.effective_on.slice(0, 4)) - 1;
-  return (
-    sortSalaryRecords(records).find(
-      (r) => Number(r.effective_on.slice(0, 4)) === previousYear,
-    ) ?? null
-  );
+  const sorted = sortSalaryRecords([
+    ...records.filter((item) => item.id !== record.id),
+    record,
+  ]);
+  const index = sorted.findIndex((item) => item.id === record.id);
+  return sorted[index + 1] ?? null;
 }
 export function salaryDifference(amount: number, reference: number) {
   return {

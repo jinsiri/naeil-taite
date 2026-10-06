@@ -24,7 +24,7 @@ import {
 import {
   latestByCareer,
   sortSalaryRecords,
-  previousYearRecord,
+  previousSalaryRecord,
   formatSalary,
   formatDifference,
   salaryDifference,
@@ -39,7 +39,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
   const sorted = sortSalaryRecords(records);
   const byCareer = latestByCareer(records);
   const latest = sorted[0];
-  const previous = latest ? previousYearRecord(latest, records) : null;
+  const previous = latest ? previousSalaryRecord(latest, records) : null;
   const difference =
     latest && previous
       ? salaryDifference(latest.amount, previous.amount)
@@ -91,7 +91,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
           icon={Wallet}
         />
         <Summary
-          label="전년도 대비 증감률"
+          label="직전 연봉 대비 증감률"
           value={
             difference?.percent === null || !difference
               ? "—"
@@ -101,8 +101,8 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
             previous && latest
               ? `${previous.effective_on} 기준 · ${formatDifference(latest.amount, previous.amount).split(" (")[0]}`
               : latest
-                ? `${Number(latest.effective_on.slice(0, 4)) - 1}년 기록이 없어요`
-                : "전년도 기록을 추가하면 비교할 수 있어요"
+                ? "비교할 이전 연봉 기록이 없어요"
+                : "직전 연봉 기록을 추가하면 비교할 수 있어요"
           }
           icon={TrendingUp}
         />
@@ -175,12 +175,12 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>연봉 이력과 전년도 비교</CardTitle>
+          <CardTitle>연봉 이력과 직전 연봉 비교</CardTitle>
           <p className="text-sm leading-6 text-muted-foreground">
-            증감률 = (해당 연봉 − 전년도 마지막 적용 연봉) ÷ 전년도 마지막 적용
-            연봉 × 100. 전년도는 달력상의 직전 연도이며, 기록이 없으면 계산하지
-            않습니다. 연봉 계약 금액을 비교하며 실제 연간 수령액을 뜻하지
-            않습니다.
+            증감률 = (해당 연봉 − 직전 연봉) ÷ 직전 연봉 × 100. 연봉 적용일
+            순서로 비교하므로 같은 해의 변경이나 2년 이상 간격의 이직도
+            반영합니다. 적용일이 같으면 등록 시각 순서로 비교합니다. 연간
+            인상률이 아니라 두 계약 연봉 사이의 증감률입니다.
           </p>
         </CardHeader>
         <CardContent>
@@ -192,7 +192,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[44rem] text-left text-sm">
                 <caption className="sr-only">
-                  적용일 내림차순 연봉 기록과 전년도 대비 증감
+                  적용일 내림차순 연봉 기록과 직전 연봉 대비 증감
                 </caption>
                 <thead>
                   <tr className="border-b text-muted-foreground">
@@ -200,7 +200,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
                       "적용일 / 연차",
                       "회사 / 메모",
                       "세전 연봉",
-                      "전년도 대비",
+                      "직전 연봉 대비",
                       "관리",
                     ].map((label) => (
                       <th
@@ -215,7 +215,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
                 </thead>
                 <tbody className="divide-y">
                   {sorted.map((record) => {
-                    const reference = previousYearRecord(record, records);
+                    const reference = previousSalaryRecord(record, records);
                     return (
                       <tr key={record.id}>
                         <td className="px-3 py-4">
@@ -253,7 +253,7 @@ export function SalaryManager({ records }: { records: SalaryRecord[] }) {
                             </>
                           ) : (
                             <span className="text-muted-foreground">
-                              전년도 기록 없음
+                              직전 연봉 기록 없음
                             </span>
                           )}
                         </td>

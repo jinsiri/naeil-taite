@@ -40,7 +40,7 @@ export default async function SalariesPage() {
         <p className="mb-3 text-sm text-primary">쌓아온 경력, 달라진 보상</p>
         <h1 className="text-3xl font-bold tracking-tight">연봉관리</h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          업종이 바뀌어도 이어지는 내 연봉 이력. 연차별 변화와 전년도 대비
+          업종이 바뀌어도 이어지는 내 연봉 이력. 연차별 변화와 직전 연봉 대비
           증감률을 확인하세요.
         </p>
       </div>
