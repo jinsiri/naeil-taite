@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   PanelsTopLeft,
   Settings2,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ const items = [
   { href: "/resumes", label: "이력서", icon: FileText },
   { href: "/jobs", label: "채용공고", icon: BriefcaseBusiness },
   { href: "/applications", label: "지원 현황", icon: PanelsTopLeft },
+  { href: "/salaries", label: "연봉관리", icon: Wallet },
   { href: "/settings/scoring", label: "평가 기준", icon: Settings2 },
 ];
 

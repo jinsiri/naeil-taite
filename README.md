@@ -96,6 +96,7 @@ supabase/migrations/202610060001_independent_applications.sql
 supabase/migrations/202610060002_submitted_resumes.sql
 supabase/migrations/202610060003_next_actions.sql
 supabase/migrations/202610060004_resume_storage_owner.sql
+supabase/migrations/202610060005_salary_records.sql
 ```
 
 ### 3. 이메일 로그인
@@ -209,3 +210,12 @@ AI 이력서 대조는 의미를 이해하는 판정이 아닙니다. 근거 확
 - `supabase/tests/next_actions.sql`은 사용자 소유권, 회고 출처 연결, 완료·재개, 충돌 및 생성 재시도를 검증합니다.
 
 `202610060004_resume_storage_owner.sql`은 원본 연결 검사 시 `storage.objects.owner_id` 컬럼과 기존 함수 변수명이 충돌하는 문제를 수정합니다. 기존 마이그레이션을 고치지 않고 새 마이그레이션으로 적용하며, `supabase/tests/resume_storage.sql`로 회귀 검증합니다.
+
+## 연봉관리
+
+`/salaries`에서 연봉 적용일, 전체 경력 연차, 세전 계약연봉(만원 단위 정수), 선택 회사·메모를 기록하고 수정·삭제할 수 있습니다. 성과급과 퇴직금은 제외한 동일 기준으로 입력합니다. 업종 전환에 따른 연차 초기화는 하지 않으며 사용자가 전체 경력 연차를 직접 입력합니다.
+
+- 연차별 그래프는 각 연차의 마지막 적용일 기록을 표시합니다. 같은 해 이직·인상 기록도 별도로 보관합니다. 적용일이 같으면 나중에 등록된 기록을 사용합니다.
+- 전년도 대비 증감률은 `(해당 연봉 − 직전 달력 연도의 마지막 적용 연봉) / 직전 연도 연봉 × 100`입니다. 전년도 기록이 없으면 계산하지 않으며 더 오래된 기록으로 대체하지 않습니다. 실제 연간 수령액이나 연평균 인상률을 뜻하지 않습니다.
+- 업계 평균 비교는 포함하지 않습니다. 기록은 사용자 소유권 기반 RLS로 격리하며, 수정·삭제 시 버전 충돌을 검사하고 삭제에는 확인이 필요합니다.
+- `supabase/tests/salary_records.sql`은 소유권·승인·충돌·중복 재시도를, `tests/salary-comparison.test.mjs`는 전년도 선택과 증감 계산을 검증합니다.
